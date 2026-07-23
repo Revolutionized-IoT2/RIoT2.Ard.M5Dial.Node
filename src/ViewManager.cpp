@@ -1,5 +1,6 @@
 #include "ViewManager.h"
 
+#include "ViewColors.h"
 #include "ViewFactory.h"
 
 constexpr unsigned long ViewManager::kIdleTimeoutMs;
@@ -26,7 +27,11 @@ constexpr int ViewManager::kNextBandTopY;
 namespace {
 // Simple vector glyph drawn inside a view's icon bubble, chosen per view
 // type so each is recognizable at a glance instead of a two-letter label.
-enum class IconGlyph { Generic, Finger, Palette, Value, Percentage, Toggle, Slider, Scene, Clock };
+// Each named entry (other than Generic) corresponds to the Google Material
+// Symbols icon (https://fonts.google.com/icons) assigned to that view type:
+// power_settings_new, colors, monitoring, percent, toggle_on, sliders, scene,
+// schedule.
+enum class IconGlyph { Generic, Power, Colors, Monitoring, Percent, ToggleOn, Sliders, Scene, Schedule };
 
 struct ViewStyle {
     uint8_t r, g, b;
@@ -37,14 +42,21 @@ struct ViewStyle {
 // classFullName - deliberately avoids near-black/near-gray colors (which can
 // read as "no icon"/background on the panel).
 const ViewStyle& styleForClassFullName(const String& classFullName, size_t fallbackIndex) {
-    static const ViewStyle kButton = {40, 110, 240, IconGlyph::Finger};
-    static const ViewStyle kColorScheme = {190, 60, 220, IconGlyph::Palette};
-    static const ViewStyle kValue = {40, 180, 90, IconGlyph::Value};
-    static const ViewStyle kPercentage = {235, 140, 20, IconGlyph::Percentage};
-    static const ViewStyle kToggle = {20, 175, 175, IconGlyph::Toggle};
-    static const ViewStyle kSlider = {225, 195, 25, IconGlyph::Slider};
-    static const ViewStyle kScene = {220, 60, 95, IconGlyph::Scene};
-    static const ViewStyle kClock = {130, 130, 220, IconGlyph::Clock};
+    static const ViewStyle kButton = {ViewColors::Button.r, ViewColors::Button.g, ViewColors::Button.b,
+                                       IconGlyph::Power};
+    static const ViewStyle kColorScheme = {ViewColors::ColorScheme.r, ViewColors::ColorScheme.g,
+                                            ViewColors::ColorScheme.b, IconGlyph::Colors};
+    static const ViewStyle kValue = {ViewColors::Value.r, ViewColors::Value.g, ViewColors::Value.b,
+                                      IconGlyph::Monitoring};
+    static const ViewStyle kPercentage = {ViewColors::Percentage.r, ViewColors::Percentage.g,
+                                           ViewColors::Percentage.b, IconGlyph::Percent};
+    static const ViewStyle kToggle = {ViewColors::Toggle.r, ViewColors::Toggle.g, ViewColors::Toggle.b,
+                                       IconGlyph::ToggleOn};
+    static const ViewStyle kSlider = {ViewColors::Slider.r, ViewColors::Slider.g, ViewColors::Slider.b,
+                                       IconGlyph::Sliders};
+    static const ViewStyle kScene = {ViewColors::Scene.r, ViewColors::Scene.g, ViewColors::Scene.b, IconGlyph::Scene};
+    static const ViewStyle kClock = {ViewColors::Clock.r, ViewColors::Clock.g, ViewColors::Clock.b,
+                                      IconGlyph::Schedule};
 
     // Vivid fallback palette (no black/gray) for any classFullName not
     // explicitly styled above, cycled by the entry's position.
@@ -82,48 +94,61 @@ String defaultSubtitleForClassFullName(const String& classFullName) {
 }
 
 // Draws a small recognizable glyph for `icon` inside a circle of radius `r`
-// centered at (cx, cy), in `ink` color.
+// centered at (cx, cy), in `ink` color. Each glyph approximates the Google
+// Material Symbols icon (https://fonts.google.com/icons) named in its case.
 void drawViewIcon(M5Canvas& canvas, IconGlyph icon, int cx, int cy, int r, uint16_t ink) {
     switch (icon) {
-        case IconGlyph::Finger:
-            // Fingertip dot with a couple of "tap ripple" arcs around it.
-            canvas.fillCircle(cx, cy + r * 0.15f, r * 0.32f, ink);
-            canvas.drawArc(cx, cy, r * 0.55f, r * 0.62f, 200, 340, ink);
-            canvas.drawArc(cx, cy, r * 0.75f, r * 0.82f, 200, 340, ink);
+        case IconGlyph::Power:
+            // Material Symbols "power_settings_new": a broken circle with a
+            // vertical line through the gap at the top.
+            canvas.drawArc(cx, cy, r * 0.55f, r * 0.68f, 300, 600, ink);
+            canvas.drawWideLine(cx, cy - r * 0.9f, cx, cy - r * 0.15f, r * 0.09f, ink);
             break;
-        case IconGlyph::Palette:
-            // Three color swatches arranged in a small triangle.
-            canvas.fillCircle(cx, cy - r * 0.35f, r * 0.22f, RED);
-            canvas.fillCircle(cx - r * 0.38f, cy + r * 0.22f, r * 0.22f, GREEN);
-            canvas.fillCircle(cx + r * 0.38f, cy + r * 0.22f, r * 0.22f, BLUE);
+        case IconGlyph::Colors:
+            // Material Symbols "colors": a paint drop (teardrop) glyph.
+            canvas.fillCircle(cx, cy + r * 0.15f, r * 0.42f, ink);
+            canvas.fillTriangle(cx - r * 0.3f, cy - r * 0.05f, cx + r * 0.3f, cy - r * 0.05f, cx, cy - r * 0.6f, ink);
             break;
-        case IconGlyph::Value:
-            // Two stacked "text line" bars, like a read-only value label.
-            canvas.fillRoundRect(cx - r * 0.55f, cy - r * 0.35f, r * 1.1f, r * 0.32f, r * 0.12f, ink);
-            canvas.fillRoundRect(cx - r * 0.55f, cy + r * 0.05f, r * 0.7f, r * 0.32f, r * 0.12f, ink);
+        case IconGlyph::Monitoring:
+            // Material Symbols "monitoring": an upward trending line chart.
+            canvas.drawWideLine(cx - r * 0.55f, cy + r * 0.3f, cx - r * 0.15f, cy - r * 0.05f, r * 0.09f, ink);
+            canvas.drawWideLine(cx - r * 0.15f, cy - r * 0.05f, cx + r * 0.15f, cy + r * 0.2f, r * 0.09f, ink);
+            canvas.drawWideLine(cx + r * 0.15f, cy + r * 0.2f, cx + r * 0.55f, cy - r * 0.45f, r * 0.09f, ink);
+            canvas.fillCircle(cx + r * 0.55f, cy - r * 0.45f, r * 0.1f, ink);
             break;
-        case IconGlyph::Percentage:
-            // Partial progress ring.
-            canvas.fillArc(cx, cy, r * 0.5f, r * 0.8f, -90, 200, ink);
+        case IconGlyph::Percent:
+            // Material Symbols "percent": two circles joined by a diagonal slash.
+            canvas.fillCircle(cx - r * 0.32f, cy - r * 0.32f, r * 0.16f, ink);
+            canvas.fillCircle(cx + r * 0.32f, cy + r * 0.32f, r * 0.16f, ink);
+            canvas.drawWideLine(cx - r * 0.5f, cy + r * 0.5f, cx + r * 0.5f, cy - r * 0.5f, r * 0.09f, ink);
             break;
-        case IconGlyph::Toggle:
-            // Pill-shaped switch track with a knob near the "on" end.
+        case IconGlyph::ToggleOn:
+            // Material Symbols "toggle_on": a simple pill-shaped switch track
+            // (outline only, so it stays a single flat tone) with a solid knob
+            // at the "on" (right) end.
             canvas.drawRoundRect(cx - r * 0.55f, cy - r * 0.28f, r * 1.1f, r * 0.56f, r * 0.28f, ink);
             canvas.fillCircle(cx + r * 0.27f, cy, r * 0.2f, ink);
             break;
-        case IconGlyph::Slider:
-            // Horizontal track with a handle.
-            canvas.drawLine(cx - r * 0.6f, cy, cx + r * 0.6f, cy, ink);
-            canvas.fillCircle(cx + r * 0.1f, cy, r * 0.18f, ink);
+        case IconGlyph::Sliders:
+            // Material Symbols "sliders": three vertical tracks with knobs at
+            // different levels.
+            for (int i = -1; i <= 1; ++i) {
+                float x = cx + i * r * 0.42f;
+                canvas.drawLine(x, cy - r * 0.65f, x, cy + r * 0.65f, ink);
+                canvas.fillCircle(x, cy - r * 0.3f * i, r * 0.15f, ink);
+            }
             break;
         case IconGlyph::Scene:
-            // Short list bars, like a scene/preset picker.
-            canvas.fillRoundRect(cx - r * 0.5f, cy - r * 0.4f, r * 1.0f, r * 0.2f, r * 0.06f, ink);
-            canvas.fillRoundRect(cx - r * 0.5f, cy - r * 0.1f, r * 0.75f, r * 0.2f, r * 0.06f, ink);
-            canvas.fillRoundRect(cx - r * 0.5f, cy + r * 0.2f, r * 0.9f, r * 0.2f, r * 0.06f, ink);
+            // Material Symbols "scene": a framed photo with a sun and mountain peaks.
+            canvas.drawRoundRect(cx - r * 0.65f, cy - r * 0.5f, r * 1.3f, r * 1.0f, r * 0.12f, ink);
+            canvas.fillCircle(cx - r * 0.3f, cy - r * 0.2f, r * 0.12f, ink);
+            canvas.fillTriangle(cx - r * 0.5f, cy + r * 0.35f, cx - r * 0.05f, cy - r * 0.05f, cx + r * 0.35f, cy + r * 0.35f,
+                                ink);
+            canvas.fillTriangle(cx + r * 0.05f, cy + r * 0.35f, cx + r * 0.4f, cy + r * 0.05f, cx + r * 0.55f, cy + r * 0.35f,
+                                ink);
             break;
-        case IconGlyph::Clock:
-            // Clock face with hour/minute hands.
+        case IconGlyph::Schedule:
+            // Material Symbols "schedule": clock face with hour/minute hands.
             canvas.drawCircle(cx, cy, r * 0.75f, ink);
             canvas.drawLine(cx, cy, cx, cy - r * 0.45f, ink);
             canvas.drawLine(cx, cy, cx + r * 0.32f, cy + r * 0.1f, ink);
@@ -358,13 +383,14 @@ void ViewManager::renderCarousel(M5Canvas& canvas) {
 
     uint16_t dimGray = canvas.color565(90, 90, 90);
 
-    // Current entry: small colored icon glyph (no background bubble) with a
-    // left-aligned title/subtitle block beside it.
+    // Current entry: icon glyph knocked out (in black) of a filled circle in
+    // the view's assigned color, beside a left-aligned title/subtitle block.
     const auto& activeEntry = _entries[_activeIndex];
     const ViewStyle& style = styleForClassFullName(activeEntry.config.classFullName, _activeIndex);
     uint16_t styleColor = canvas.color565(style.r, style.g, style.b);
 
-    drawViewIcon(canvas, style.icon, kIconCenterX, kIconCenterY, kIconRadius, styleColor);
+    canvas.fillCircle(kIconCenterX, kIconCenterY, kIconRadius, styleColor);
+    drawViewIcon(canvas, style.icon, kIconCenterX, kIconCenterY, kIconRadius, BLACK);
 
     int maxTextWidth = kDotsX - kTextX - 14;
     drawFittedLeftText(canvas, activeEntry.config.name, kTextX, kTitleY, maxTextWidth, styleColor);
@@ -383,7 +409,8 @@ void ViewManager::renderCarousel(M5Canvas& canvas) {
         size_t nextIndex = (_activeIndex + 1) % count;
         const ViewStyle& nextStyle = styleForClassFullName(_entries[nextIndex].config.classFullName, nextIndex);
         uint16_t nextColor = canvas.color565(nextStyle.r / 3, nextStyle.g / 3, nextStyle.b / 3);
-        drawViewIcon(canvas, nextStyle.icon, kNextPeekCenterX, kNextPeekCenterY, kNextPeekRadius, nextColor);
+        canvas.fillCircle(kNextPeekCenterX, kNextPeekCenterY, kNextPeekRadius, nextColor);
+        drawViewIcon(canvas, nextStyle.icon, kNextPeekCenterX, kNextPeekCenterY, kNextPeekRadius, BLACK);
     }
 
     // Mirrors the next-entry peek above the current content, so turning the
@@ -393,7 +420,8 @@ void ViewManager::renderCarousel(M5Canvas& canvas) {
         size_t prevIndex = (_activeIndex + count - 1) % count;
         const ViewStyle& prevStyle = styleForClassFullName(_entries[prevIndex].config.classFullName, prevIndex);
         uint16_t prevColor = canvas.color565(prevStyle.r / 3, prevStyle.g / 3, prevStyle.b / 3);
-        drawViewIcon(canvas, prevStyle.icon, kPrevPeekCenterX, kPrevPeekCenterY, kPrevPeekRadius, prevColor);
+        canvas.fillCircle(kPrevPeekCenterX, kPrevPeekCenterY, kPrevPeekRadius, prevColor);
+        drawViewIcon(canvas, prevStyle.icon, kPrevPeekCenterX, kPrevPeekCenterY, kPrevPeekRadius, BLACK);
     }
 
     // Vertical page-position dot strip along the right edge: a sliding

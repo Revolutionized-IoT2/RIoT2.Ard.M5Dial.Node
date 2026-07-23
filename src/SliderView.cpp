@@ -3,12 +3,13 @@
 #include <memory>
 
 #include "Buzzer.h"
+#include "ViewColors.h"
 #include "ViewFactory.h"
 
 namespace {
-constexpr uint32_t kTrackColor = 0x39C7;   // dark grey
-constexpr uint32_t kValueColor = 0x07FF;   // cyan
-constexpr uint32_t kAdjustColor = 0xFFE0;  // yellow
+constexpr uint32_t kTrackColor = 0x39C7;  // dark grey
+const uint16_t kValueColor = ViewColors::toRGB565(ViewColors::Slider);  // this view's assigned color
+const uint16_t kAdjustColor = ViewColors::toRGB565(ViewColors::lighten(ViewColors::Slider, 0.5f));  // brighter, on-theme
 }  // namespace
 
 void SliderView::begin(const DeviceConfiguration& config) {

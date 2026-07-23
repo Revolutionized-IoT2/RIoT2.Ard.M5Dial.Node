@@ -3,7 +3,12 @@
 #include <memory>
 
 #include "Buzzer.h"
+#include "ViewColors.h"
 #include "ViewFactory.h"
+
+namespace {
+const uint16_t kBrowsingColor = ViewColors::toRGB565(ViewColors::Scene);  // this view's assigned color
+}  // namespace
 
 void SceneSelectorView::begin(const DeviceConfiguration& config) {
     _items = config.reportTemplates;
@@ -66,7 +71,7 @@ void SceneSelectorView::render(M5Canvas& canvas) {
         canvas.drawString(_items[nextIndex].name, cx, cy + 60);
     }
 
-    canvas.setTextColor(_browsing ? 0xFFE0 : WHITE);
+    canvas.setTextColor(_browsing ? kBrowsingColor : WHITE);
     canvas.setTextSize(2);
     canvas.drawString(_items[index].name, cx, cy);
 

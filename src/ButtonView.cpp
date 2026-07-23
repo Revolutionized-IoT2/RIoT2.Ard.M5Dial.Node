@@ -3,12 +3,13 @@
 #include <memory>
 
 #include "Buzzer.h"
+#include "ViewColors.h"
 #include "ViewFactory.h"
 
 namespace {
 constexpr int kDisplaySize = 240;
-constexpr uint32_t kActiveColor = 0x07E0;    // green
-constexpr uint32_t kInactiveColor = 0x39C7;  // dark grey
+const uint16_t kActiveColor = ViewColors::toRGB565(ViewColors::Button);  // this view's assigned color
+constexpr uint32_t kInactiveColor = 0x39C7;                              // dark grey
 constexpr unsigned long kFlashMs = 200;
 }  // namespace
 

@@ -3,11 +3,12 @@
 #include <memory>
 
 #include "Buzzer.h"
+#include "ViewColors.h"
 #include "ViewFactory.h"
 
 namespace {
-constexpr uint32_t kOnColor = 0x07E0;    // green
-constexpr uint32_t kOffColor = 0x39C7;   // dark grey
+const uint16_t kOnColor = ViewColors::toRGB565(ViewColors::Toggle);  // this view's assigned color
+constexpr uint32_t kOffColor = 0x39C7;                               // dark grey
 }  // namespace
 
 void ToggleView::begin(const DeviceConfiguration& config) {
