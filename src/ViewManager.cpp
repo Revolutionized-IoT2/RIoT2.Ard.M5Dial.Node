@@ -31,7 +31,7 @@ namespace {
 // Symbols icon (https://fonts.google.com/icons) assigned to that view type:
 // power_settings_new, colors, monitoring, percent, toggle_on, sliders, scene,
 // schedule.
-enum class IconGlyph { Generic, Power, Colors, Monitoring, Percent, ToggleOn, Sliders, Scene, Schedule };
+enum class IconGlyph { Generic, Power, Colors, Monitoring, Percent, ToggleOn, Sliders, Scene, Schedule, Warning, Bell, Timer };
 
 struct ViewStyle {
     uint8_t r, g, b;
@@ -57,6 +57,11 @@ const ViewStyle& styleForClassFullName(const String& classFullName, size_t fallb
     static const ViewStyle kScene = {ViewColors::Scene.r, ViewColors::Scene.g, ViewColors::Scene.b, IconGlyph::Scene};
     static const ViewStyle kClock = {ViewColors::Clock.r, ViewColors::Clock.g, ViewColors::Clock.b,
                                       IconGlyph::Schedule};
+    static const ViewStyle kAlert = {ViewColors::Alert.r, ViewColors::Alert.g, ViewColors::Alert.b,
+                                      IconGlyph::Warning};
+    static const ViewStyle kNotification = {ViewColors::Notification.r, ViewColors::Notification.g,
+                                             ViewColors::Notification.b, IconGlyph::Bell};
+    static const ViewStyle kTimer = {ViewColors::Timer.r, ViewColors::Timer.g, ViewColors::Timer.b, IconGlyph::Timer};
 
     // Vivid fallback palette (no black/gray) for any classFullName not
     // explicitly styled above, cycled by the entry's position.
@@ -75,6 +80,9 @@ const ViewStyle& styleForClassFullName(const String& classFullName, size_t fallb
     if (classFullName == "RIoT2.Ard.M5Dial.Node.SliderView") return kSlider;
     if (classFullName == "RIoT2.Ard.M5Dial.Node.SceneSelectorView") return kScene;
     if (classFullName == "RIoT2.Ard.M5Dial.Node.ClockView") return kClock;
+    if (classFullName == "RIoT2.Ard.M5Dial.Node.AlertView") return kAlert;
+    if (classFullName == "RIoT2.Ard.M5Dial.Node.NotificationView") return kNotification;
+    if (classFullName == "RIoT2.Ard.M5Dial.Node.TimerView") return kTimer;
     return kFallback[fallbackIndex % kFallbackCount];
 }
 
@@ -90,6 +98,9 @@ String defaultSubtitleForClassFullName(const String& classFullName) {
     if (classFullName == "RIoT2.Ard.M5Dial.Node.SliderView") return "Slider";
     if (classFullName == "RIoT2.Ard.M5Dial.Node.SceneSelectorView") return "Scenes";
     if (classFullName == "RIoT2.Ard.M5Dial.Node.ClockView") return "Clock";
+    if (classFullName == "RIoT2.Ard.M5Dial.Node.AlertView") return "Alert";
+    if (classFullName == "RIoT2.Ard.M5Dial.Node.NotificationView") return "Notification";
+    if (classFullName == "RIoT2.Ard.M5Dial.Node.TimerView") return "Timer";
     return "Tap to open";
 }
 
@@ -152,6 +163,28 @@ void drawViewIcon(M5Canvas& canvas, IconGlyph icon, int cx, int cy, int r, uint1
             canvas.drawCircle(cx, cy, r * 0.75f, ink);
             canvas.drawLine(cx, cy, cx, cy - r * 0.45f, ink);
             canvas.drawLine(cx, cy, cx + r * 0.32f, cy + r * 0.1f, ink);
+            break;
+        case IconGlyph::Warning:
+            // Material Symbols "warning": a triangle with an exclamation mark.
+            canvas.fillTriangle(cx, cy - r * 0.7f, cx - r * 0.65f, cy + r * 0.55f, cx + r * 0.65f, cy + r * 0.55f, ink);
+            canvas.fillTriangle(cx, cy - r * 0.7f + r * 0.22f, cx - r * 0.65f + r * 0.14f, cy + r * 0.55f - r * 0.14f,
+                                cx + r * 0.65f - r * 0.14f, cy + r * 0.55f - r * 0.14f, BLACK);
+            canvas.fillCircle(cx, cy + r * 0.28f, r * 0.08f, ink);
+            canvas.fillRect(cx - r * 0.06f, cy - r * 0.15f, r * 0.12f, r * 0.3f, ink);
+            break;
+        case IconGlyph::Bell:
+            // Material Symbols "notifications": a bell body with a clapper.
+            canvas.fillTriangle(cx - r * 0.5f, cy + r * 0.15f, cx + r * 0.5f, cy + r * 0.15f, cx, cy - r * 0.6f, ink);
+            canvas.fillCircle(cx, cy - r * 0.05f, r * 0.42f, ink);
+            canvas.fillRoundRect(cx - r * 0.55f, cy + r * 0.05f, r * 1.1f, r * 0.16f, r * 0.08f, ink);
+            canvas.fillCircle(cx, cy + r * 0.4f, r * 0.14f, ink);
+            break;
+        case IconGlyph::Timer:
+            // Material Symbols "timer": a stopwatch - a small crown button on
+            // top of a circular body, with a hand pointing off-center.
+            canvas.fillRect(cx - r * 0.12f, cy - r * 0.95f, r * 0.24f, r * 0.18f, ink);
+            canvas.drawCircle(cx, cy, r * 0.7f, ink);
+            canvas.drawLine(cx, cy, cx + r * 0.35f, cy - r * 0.35f, ink);
             break;
         case IconGlyph::Generic:
         default:
@@ -362,10 +395,21 @@ void ViewManager::onTouch(int x, int y) {
 
 
 void ViewManager::onCommand(const String& commandId, const Command& command) {
-    for (auto& entry : _entries) {
+    for (size_t i = 0; i < _entries.size(); ++i) {
+        Entry& entry = _entries[i];
         for (const auto& cmdTemplate : entry.config.commandTemplates) {
             if (cmdTemplate.id == commandId) {
                 entry.view->onCommand(command);
+
+                // Alert-like views (AlertView/NotificationView) interrupt
+                // whatever is currently shown as soon as their command
+                // arrives, instead of waiting for the user to dial/tap their
+                // way to them.
+                if (entry.view->isAlert() && !(_mode == Mode::Focused && _activeIndex == i)) {
+                    enterFocused(i);
+                    _idle = false;
+                    _lastInputMs = millis();
+                }
                 return;
             }
         }
@@ -471,6 +515,17 @@ void ViewManager::render(M5Canvas& canvas) {
     if (_idle) {
         _idleView.render(canvas);
         return;
+    }
+
+    if (_mode == Mode::Focused) {
+        if (IView* view = activeView()) {
+            // Lets a transient alert/notification ask to return to the
+            // carousel on its own (acknowledged via tap, or auto-dismissed
+            // after a timeout) without needing the physical button.
+            if (view->wantsExit()) {
+                exitToCarousel();
+            }
+        }
     }
 
     if (_mode == Mode::Carousel) {

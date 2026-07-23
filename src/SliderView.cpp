@@ -7,9 +7,11 @@
 #include "ViewFactory.h"
 
 namespace {
-constexpr uint32_t kTrackColor = 0x39C7;  // dark grey
+const uint16_t kTrackColor = ViewColors::toRGB565(ViewColors::lighten(ViewColors::Slider, 0.8f));  // pale track
 const uint16_t kValueColor = ViewColors::toRGB565(ViewColors::Slider);  // this view's assigned color
 const uint16_t kAdjustColor = ViewColors::toRGB565(ViewColors::lighten(ViewColors::Slider, 0.5f));  // brighter, on-theme
+const uint16_t kTickColor = ViewColors::toRGB565(ViewColors::lighten(ViewColors::Slider, 0.4f));  // tick dots on track
+constexpr int kTickCount = 6;  // decorative tick marks spread across the track, like an Android volume slider
 }  // namespace
 
 void SliderView::begin(const DeviceConfiguration& config) {
@@ -78,24 +80,51 @@ void SliderView::render(M5Canvas& canvas) {
     int displayValue = _adjusting ? _pendingValue : _value;
     int cx = canvas.width() / 2;
     int cy = canvas.height() / 2;
-    int outerR = (cx < cy ? cx : cy) - 10;
-    int innerR = outerR - 20;
 
     float fraction = static_cast<float>(displayValue - _min) / static_cast<float>(_max - _min);
+    uint16_t fillColor = _adjusting ? kAdjustColor : kValueColor;
 
-    canvas.fillArc(cx, cy, outerR, innerR, 0, 360, kTrackColor);
-    if (fraction > 0) {
-        canvas.fillArc(cx, cy, outerR, innerR, 0, 360.0f * fraction, _adjusting ? kAdjustColor : kValueColor);
+    canvas.setTextColor(WHITE, BLACK);
+    canvas.setTextDatum(middle_center);
+    canvas.setTextSize(2);
+    canvas.drawString(_name, cx, cy - 50);
+
+    // Horizontal pill-shaped track (like an Android volume slider): pale
+    // background, decorative evenly-spaced tick dots, and a filled portion
+    // in the view's accent color with a thumb divider at the boundary.
+    int barWidth = canvas.width() - 80;
+    int barHeight = 28;
+    int barX = cx - barWidth / 2;
+    int barY = cy - barHeight / 2;
+    int radius = barHeight / 2;
+
+    canvas.fillRoundRect(barX, barY, barWidth, barHeight, radius, kTrackColor);
+
+    for (int i = 1; i <= kTickCount; i++) {
+        int tickX = barX + radius + (barWidth - 2 * radius) * i / (kTickCount + 1);
+        canvas.fillCircle(tickX, cy, 2, kTickColor);
     }
 
-    canvas.setTextColor(WHITE);
-    canvas.setTextDatum(middle_center);
-    canvas.setTextSize(3);
+    int filledWidth = static_cast<int>(barWidth * fraction + 0.5f);
+    filledWidth = filledWidth < 0 ? 0 : (filledWidth > barWidth ? barWidth : filledWidth);
+    if (filledWidth > 0) {
+        canvas.fillRoundRect(barX, barY, filledWidth, barHeight, radius, fillColor);
+    }
+
+    // Thumb: a short vertical bar marking the boundary between filled and
+    // unfilled track.
+    int thumbX = barX + filledWidth;
+    thumbX = thumbX < barX + 2 ? barX + 2 : (thumbX > barX + barWidth - 2 ? barX + barWidth - 2 : thumbX);
+    canvas.fillRoundRect(thumbX - 2, barY - 6, 4, barHeight + 12, 2, WHITE);
+
+    canvas.setTextSize(2);
     String valueText = String(displayValue) + (_unit.length() ? " " + _unit : "");
-    canvas.drawString(valueText, cx, cy - 10);
+    canvas.drawString(valueText, cx, cy + 45);
 
     canvas.setTextSize(1);
-    canvas.drawString(_adjusting ? "rotate + tap to confirm" : _name, cx, cy + 30);
+    if (_adjusting) {
+        canvas.drawString("rotate + tap to confirm", cx, cy + 75);
+    }
 }
 
 namespace {

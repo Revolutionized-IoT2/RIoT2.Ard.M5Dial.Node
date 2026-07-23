@@ -97,6 +97,38 @@
         { "id": "scene-good-night", "type": "0", "name": "Good Night", "address": "", "parameters": {} }
       ],
       "deviceParameters": {}
+    },
+    {
+      "id": "view-alert",
+      "name": "Doorbell Alert",
+      "classFullName": "RIoT2.Ard.M5Dial.Node.AlertView",
+      "commandTemplates": [
+        { "id": "doorbell-alert-cmd", "type": "1", "name": "Doorbell Alert", "address": "doorbell-1", "valueType": 1, "model": false }
+      ],
+      "reportTemplates": [],
+      "deviceParameters": { "title": "Doorbell", "message": "Someone is at the front door", "subHeader": "tap to acknowledge" }
+    },
+    {
+      "id": "view-notification",
+      "name": "Status Notice",
+      "classFullName": "RIoT2.Ard.M5Dial.Node.NotificationView",
+      "commandTemplates": [
+        { "id": "status-notice-cmd", "type": "1", "name": "Status Notice", "address": "notice-1", "valueType": 1, "model": false }
+      ],
+      "reportTemplates": [],
+      "deviceParameters": { "title": "Notice", "message": "Washer cycle finished", "durationMs": "5000", "subHeader": "auto-dismisses" }
+    },
+    {
+      "id": "view-timer",
+      "name": "Kitchen Timer",
+      "classFullName": "RIoT2.Ard.M5Dial.Node.TimerView",
+      "commandTemplates": [
+        { "id": "kitchen-timer-cmd", "type": "2", "name": "Kitchen Timer", "address": "timer-1", "valueType": 2, "model": false }
+      ],
+      "reportTemplates": [
+        { "id": "kitchen-timer-report", "type": "2", "name": "Kitchen Timer", "address": "timer-1", "parameters": {} }
+      ],
+      "deviceParameters": { "defaultMinutes": "10", "stepMinutes": "1", "maxMinutes": "60" }
     }
   ]
 }

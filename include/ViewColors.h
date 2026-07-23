@@ -21,6 +21,9 @@ const RGB Toggle = {20, 175, 175};       // teal
 const RGB Slider = {225, 195, 25};       // yellow
 const RGB Scene = {220, 60, 95};         // red/pink
 const RGB Clock = {130, 130, 220};       // lavender
+const RGB Alert = {235, 45, 45};         // urgent red
+const RGB Notification = {45, 150, 235}; // sky blue
+const RGB Timer = {255, 87, 34};         // deep orange
 
 // Packs an RGB triple into the 16-bit 5-6-5 color M5GFX/LovyanGFX canvas
 // drawing calls expect.

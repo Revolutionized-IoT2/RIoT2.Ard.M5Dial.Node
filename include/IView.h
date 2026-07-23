@@ -41,6 +41,19 @@ public:
     // Apply an inbound command addressed to one of this view's commandTemplates.
     virtual void onCommand(const Command& command) { (void)command; }
 
+    // Views like AlertView/NotificationView that must interrupt whatever the
+    // carousel/another view is currently showing as soon as their command
+    // arrives (rather than waiting for the user to dial/tap their way to
+    // them) return true here. See ViewManager::onCommand().
+    virtual bool isAlert() const { return false; }
+
+    // Polled by the ViewManager once per frame while this view is focused;
+    // returning true asks the ViewManager to return to the home carousel
+    // (e.g. after a transient alert/notification has been acknowledged or
+    // has auto-dismissed itself). Most views never need this - the physical
+    // button already returns to the carousel unconditionally.
+    virtual bool wantsExit() { return false; }
+
     // Draw to the M5Dial's off-screen canvas (called every frame while focused).
     virtual void render(M5Canvas& canvas) = 0;
 

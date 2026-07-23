@@ -7,9 +7,12 @@
 // Like PercentageView but for an arbitrary numeric range + unit (not just
 // 0-100%), e.g. brightness, volume, fan speed. Range is configured via
 // deviceParameters: "min", "max", "step", "unit" (all optional, default to
-// 0, 100, 1, ""). Tap anywhere on the view to enter "adjust" mode, rotate
-// the dial to change the value, tap again to confirm and publish it as a
-// Report. The value can also be pushed in from an inbound Command while idle.
+// 0, 100, 1, ""). Renders as a horizontal pill-shaped track with decorative
+// tick dots and a thumb divider (Android-style volume slider), rather than
+// PercentageView's circular arc gauge. Tap anywhere on the view to enter
+// "adjust" mode, rotate the dial to change the value, tap again to confirm
+// and publish it as a Report. The value can also be pushed in from an
+// inbound Command while idle.
 class SliderView : public IView {
 public:
     void begin(const DeviceConfiguration& config) override;
