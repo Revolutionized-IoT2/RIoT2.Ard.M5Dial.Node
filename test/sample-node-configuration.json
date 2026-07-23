@@ -1,0 +1,102 @@
+{
+  "name": "M5Dial Test Node",
+  "id": "98D067AB-9672-45D1-81DF-110B4B82455D",
+  "deviceConfigurations": [
+    {
+      "id": "view-clock",
+      "name": "Clock",
+      "classFullName": "RIoT2.Ard.M5Dial.Node.ClockView",
+      "commandTemplates": [],
+      "reportTemplates": [],
+      "deviceParameters": {}
+    },
+    {
+      "id": "view-buttons",
+      "name": "Living Room Lights",
+      "classFullName": "RIoT2.Ard.M5Dial.Node.ButtonView",
+      "commandTemplates": [
+        { "id": "btn-livingroom-cmd", "type": "0", "name": "Living Room", "address": "btn-1", "valueType": 0, "model": false },
+        { "id": "btn-kitchen-cmd", "type": "0", "name": "Kitchen", "address": "btn-2", "valueType": 0, "model": false },
+        { "id": "btn-bedroom-cmd", "type": "0", "name": "Bedroom", "address": "btn-3", "valueType": 0, "model": false }
+      ],
+      "reportTemplates": [
+        { "id": "btn-livingroom-report", "type": "0", "name": "Living Room", "address": "btn-1", "parameters": { "icon": "bulb" } },
+        { "id": "btn-kitchen-report", "type": "0", "name": "Kitchen", "address": "btn-2", "parameters": { "icon": "bulb" } },
+        { "id": "btn-bedroom-report", "type": "0", "name": "Bedroom", "address": "btn-3", "parameters": { "icon": "bulb" } }
+      ],
+      "deviceParameters": { "header": "Lights", "subHeader": "tap a room to toggle" }
+    },
+    {
+      "id": "view-toggle",
+      "name": "Porch Relay",
+      "classFullName": "RIoT2.Ard.M5Dial.Node.ToggleView",
+      "commandTemplates": [
+        { "id": "porch-relay-cmd", "type": "0", "name": "Porch Relay", "address": "relay-1", "valueType": 0, "model": false }
+      ],
+      "reportTemplates": [
+        { "id": "porch-relay-report", "type": "0", "name": "Porch Relay", "address": "relay-1", "parameters": {} }
+      ],
+      "deviceParameters": {}
+    },
+    {
+      "id": "view-slider",
+      "name": "Fan Speed",
+      "classFullName": "RIoT2.Ard.M5Dial.Node.SliderView",
+      "commandTemplates": [
+        { "id": "fan-speed-cmd", "type": "2", "name": "Fan Speed", "address": "fan-1", "valueType": 2, "model": false }
+      ],
+      "reportTemplates": [
+        { "id": "fan-speed-report", "type": "2", "name": "Fan Speed", "address": "fan-1", "parameters": {} }
+      ],
+      "deviceParameters": { "min": "0", "max": "10", "step": "1", "unit": "" }
+    },
+    {
+      "id": "view-percentage",
+      "name": "Bedroom Dimmer",
+      "classFullName": "RIoT2.Ard.M5Dial.Node.PercentageView",
+      "commandTemplates": [
+        { "id": "dimmer-cmd", "type": "2", "name": "Bedroom Dimmer", "address": "dimmer-1", "valueType": 2, "model": false }
+      ],
+      "reportTemplates": [
+        { "id": "dimmer-report", "type": "2", "name": "Bedroom Dimmer", "address": "dimmer-1", "parameters": {} }
+      ],
+      "deviceParameters": {}
+    },
+    {
+      "id": "view-colorscheme",
+      "name": "Office Lamp Color",
+      "classFullName": "RIoT2.Ard.M5Dial.Node.ColorSchemeView",
+      "commandTemplates": [
+        { "id": "lamp-color-cmd", "type": "1", "name": "Office Lamp Color", "address": "lamp-1", "valueType": 1, "model": false }
+      ],
+      "reportTemplates": [
+        { "id": "lamp-color-report", "type": "1", "name": "Office Lamp Color", "address": "lamp-1", "parameters": {} }
+      ],
+      "deviceParameters": {}
+    },
+    {
+      "id": "view-values",
+      "name": "Weather Station",
+      "classFullName": "RIoT2.Ard.M5Dial.Node.ValueView",
+      "commandTemplates": [
+        { "id": "temperature-cmd", "type": "2", "name": "Temperature", "address": "temp-1", "valueType": 2, "model": false },
+        { "id": "humidity-cmd", "type": "2", "name": "Humidity", "address": "humidity-1", "valueType": 2, "model": false }
+      ],
+      "reportTemplates": [],
+      "deviceParameters": { "unit1": "C", "unit2": "%" }
+    },
+    {
+      "id": "view-scenes",
+      "name": "Scenes",
+      "classFullName": "RIoT2.Ard.M5Dial.Node.SceneSelectorView",
+      "commandTemplates": [],
+      "reportTemplates": [
+        { "id": "scene-movie-night", "type": "0", "name": "Movie Night", "address": "", "parameters": {} },
+        { "id": "scene-dinner", "type": "0", "name": "Dinner", "address": "", "parameters": {} },
+        { "id": "scene-good-morning", "type": "0", "name": "Good Morning", "address": "", "parameters": {} },
+        { "id": "scene-good-night", "type": "0", "name": "Good Night", "address": "", "parameters": {} }
+      ],
+      "deviceParameters": {}
+    }
+  ]
+}
