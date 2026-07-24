@@ -170,6 +170,52 @@ void drawFittedLeftText(M5Canvas& canvas, const String& text, int x, int y, int 
     canvas.drawString(truncated + "..", x, y);
 }
 
+// Lays out the focused row's title, preferring the largest single-line size
+// (from 4 down to 2) that fits within maxWidth. If the name is too long to
+// fit on one line even at the smallest "big" size, it's wrapped onto a
+// second line (split at a space) instead of shrinking further, so long
+// names still render large rather than collapsing down to a tiny single
+// line - only pathologically long/unsplittable names fall back to a small
+// ellipsis-truncated single line. Returns 1 or 2 lines via outLines and the
+// chosen font size via outSize.
+void layoutFocusedTitle(M5Canvas& canvas, const String& text, int maxWidth, std::vector<String>& outLines,
+                         int& outSize) {
+    for (int size = 4; size >= 2; --size) {
+        canvas.setTextSize(size);
+        if (canvas.textWidth(text) <= maxWidth) {
+            outLines.assign(1, text);
+            outSize = size;
+            return;
+        }
+    }
+
+    for (int size = 3; size >= 2; --size) {
+        canvas.setTextSize(size);
+        int bestSplit = -1;
+        for (int sp = 0; sp < static_cast<int>(text.length()); ++sp) {
+            if (text[sp] != ' ') continue;
+            String line1 = text.substring(0, sp);
+            String line2 = text.substring(sp + 1);
+            if (canvas.textWidth(line1) <= maxWidth && canvas.textWidth(line2) <= maxWidth) {
+                bestSplit = sp;
+            }
+        }
+        if (bestSplit >= 0) {
+            outLines = {text.substring(0, bestSplit), text.substring(bestSplit + 1)};
+            outSize = size;
+            return;
+        }
+    }
+
+    canvas.setTextSize(1);
+    String truncated = text;
+    while (truncated.length() > 1 && canvas.textWidth(truncated + "..") > maxWidth) {
+        truncated.remove(truncated.length() - 1);
+    }
+    outLines.assign(1, truncated + "..");
+    outSize = 1;
+}
+
 }  // namespace
 
 void ViewManager::rebuild(const NodeConfiguration& nodeConfiguration) {
@@ -426,12 +472,31 @@ void ViewManager::renderCarousel(M5Canvas& canvas) {
             // The focused row is alone (no neighboring rows fighting for the
             // same horizontal band), so let its title use the full width
             // remaining to the panel's edge - rather than the same
-            // arc-shrunk `maxTextWidth` budget shared rows use - and start
-            // from a larger size so it's always rendered as big as the
-            // screen allows, only stepping down for names that are too long
-            // to fit even then.
+            // arc-shrunk `maxTextWidth` budget shared rows use - and wrap
+            // onto a second line rather than shrinking when a name is too
+            // long for one line, so it's always rendered as big as the
+            // screen allows.
             int maxWidthFocused = canvas.width() - textX - 6;
-            drawFittedLeftText(canvas, entry.config.name, textX, rowY - 13, maxWidthFocused, titleColor, 4);
+
+            std::vector<String> titleLines;
+            int titleSize;
+            layoutFocusedTitle(canvas, entry.config.name, maxWidthFocused, titleLines, titleSize);
+
+            canvas.setTextDatum(middle_left);
+            canvas.setTextColor(titleColor);
+            canvas.setTextSize(titleSize);
+
+            int titleBaseY = rowY - 13;
+            int subtitleY = rowY + 17;
+            if (titleLines.size() == 1) {
+                canvas.drawString(titleLines[0], textX, titleBaseY);
+            } else {
+                int lineHeight = 8 * titleSize;
+                int half = lineHeight / 2 + 2;
+                canvas.drawString(titleLines[0], textX, titleBaseY - half);
+                canvas.drawString(titleLines[1], textX, titleBaseY + half);
+                subtitleY = titleBaseY + half + lineHeight / 2 + 10;
+            }
 
             String subtitle = findParameter(entry.config.deviceParameters, "subHeader", "");
             if (subtitle.length() == 0) {
@@ -439,7 +504,7 @@ void ViewManager::renderCarousel(M5Canvas& canvas) {
             }
             if (subtitle.length() > 0) {
                 uint16_t subtitleColor = canvas.color565(90, 90, 90);
-                drawFittedLeftText(canvas, subtitle, textX, rowY + 17, maxWidthFocused, subtitleColor, 1);
+                drawFittedLeftText(canvas, subtitle, textX, subtitleY, maxWidthFocused, subtitleColor, 1);
             }
         } else {
             // Unfocused rows always render at the same small, fixed size
