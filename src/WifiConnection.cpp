@@ -13,6 +13,13 @@ void WifiConnection::begin(const String& ssid, const String& password) {
 void WifiConnection::startConnection() {
     Serial.printf("[WiFi] Connecting to \"%s\"...\n", _ssid.c_str());
     WiFi.mode(WIFI_STA);
+    // ESP32's default WiFi modem-sleep power saving periodically pauses the
+    // radio and can introduce brief scheduling/interrupt latency spikes -
+    // enough, occasionally, to make the encoder's interrupt-driven quadrature
+    // decoding miss a transition and "skip" a detent. Disable it: this node
+    // is USB/battery-powered hardware where responsiveness matters far more
+    // than the small extra power draw.
+    WiFi.setSleep(false);
     WiFi.begin(_ssid.c_str(), _password.c_str());
     _state = WifiState::Connecting;
     _lastAttemptMs = millis();
