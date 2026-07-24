@@ -244,8 +244,11 @@ and media-remote widgets):
   remaining time or completion.
 - **StatusOverviewView / DashboardView** — read-only glanceable summary of several
   `reportTemplates` (e.g. small icons/values), no interaction — useful as the "home" view.
-- **AlertView / NotificationView** — transient full-screen view pushed by an inbound `Command`
-  (e.g. doorbell, alarm), auto-dismisses or requires a tap to acknowledge.
+- **AlertView / NotificationView** — transient full-screen *popups*, not menu items: they're
+  excluded from the home carousel entirely (`ViewManager` filters out any view whose `isAlert()`
+  returns `true` when building the navigable menu) and are only ever shown when their inbound
+  `Command` arrives, interrupting whatever's currently on screen; auto-dismisses or requires a tap
+  to acknowledge.
 - **ClockView** — idle/screensaver view (time + maybe next event) shown after inactivity timeout
   or as `deviceConfigurations[0]`.
 

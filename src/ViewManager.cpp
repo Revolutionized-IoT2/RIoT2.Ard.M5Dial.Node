@@ -245,7 +245,19 @@ void ViewManager::rebuild(const NodeConfiguration& nodeConfiguration) {
         _entries.push_back(std::move(entry));
     }
 
-    Serial.printf("[ViewManager] Rebuilt carousel with %u view(s)\n", static_cast<unsigned>(_entries.size()));
+    // Alert/notification-style entries are popups triggered only by an
+    // inbound command (see onCommand()'s isAlert() handling) - they never
+    // appear as items in the navigable home carousel.
+    _menuIndices.clear();
+    for (size_t i = 0; i < _entries.size(); ++i) {
+        if (!_entries[i].view->isAlert()) {
+            _menuIndices.push_back(i);
+        }
+    }
+    _menuPosition = 0;
+
+    Serial.printf("[ViewManager] Rebuilt carousel with %u view(s), %u in menu\n",
+                  static_cast<unsigned>(_entries.size()), static_cast<unsigned>(_menuIndices.size()));
 
     _idleView.begin(DeviceConfiguration{});
     _lastInputMs = millis();
@@ -264,12 +276,12 @@ IView* ViewManager::activeView() const {
 }
 
 void ViewManager::moveHighlight(int direction) {
-    if (_entries.size() < 2) {
+    if (_menuIndices.size() < 2) {
         return;
     }
 
-    size_t count = _entries.size();
-    _activeIndex = (_activeIndex + static_cast<size_t>(direction > 0 ? 1 : count - 1)) % count;
+    size_t count = _menuIndices.size();
+    _menuPosition = (_menuPosition + static_cast<size_t>(direction > 0 ? 1 : count - 1)) % count;
 }
 
 void ViewManager::enterFocused(size_t index) {
@@ -343,8 +355,8 @@ void ViewManager::onButtonPress() {
     // by touch and the bezel instead).
     if (_mode == Mode::Focused) {
         exitToCarousel();
-    } else {
-        enterFocused(_activeIndex);
+    } else if (!_menuIndices.empty()) {
+        enterFocused(_menuIndices[_menuPosition]);
     }
 }
 
@@ -368,8 +380,8 @@ void ViewManager::onTouch(int x, int y) {
             moveHighlight(-1);
         } else if (y > kNextBandTopY) {
             moveHighlight(1);
-        } else {
-            enterFocused(_activeIndex);
+        } else if (!_menuIndices.empty()) {
+            enterFocused(_menuIndices[_menuPosition]);
         }
         return;
     }
@@ -410,18 +422,18 @@ void ViewManager::onCommand(const String& commandId, const Command& command) {
 void ViewManager::renderCarousel(M5Canvas& canvas) {
     canvas.fillScreen(BLACK);
 
-    size_t count = _entries.size();
+    size_t count = _menuIndices.size();
     if (count == 0) {
         return;
     }
 
     float countF = static_cast<float>(count);
 
-    // Ease _scrollPosition toward _activeIndex, taking the shortest
+    // Ease _scrollPosition toward _menuPosition, taking the shortest
     // wraparound path (e.g. going from the last entry to entry 0 animates
     // forward by one step instead of sweeping backward across the whole
     // list) - see the class comment on _scrollPosition.
-    float diff = static_cast<float>(_activeIndex) - _scrollPosition;
+    float diff = static_cast<float>(_menuPosition) - _scrollPosition;
     diff -= countF * roundf(diff / countF);
     _scrollPosition += diff * kScrollEase;
     _scrollPosition = fmodf(_scrollPosition, countF);
@@ -455,8 +467,8 @@ void ViewManager::renderCarousel(M5Canvas& canvas) {
         bool focused = absT < 0.12f;
         int iconRadius = static_cast<int>(kIconRadiusFocused - (kIconRadiusFocused - kIconRadiusMin) * absT);
 
-        const Entry& entry = _entries[i];
-        const ViewStyle& style = styleForClassFullName(entry.config.classFullName, i);
+        const Entry& entry = _entries[_menuIndices[i]];
+        const ViewStyle& style = styleForClassFullName(entry.config.classFullName, _menuIndices[i]);
 
         int iconX = kIconColumnX + arcShift;
         int textX = iconX + iconRadius + 12;

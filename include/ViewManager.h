@@ -19,7 +19,10 @@
 // rows further away shrinking, dimming, and bowing rightward - see
 // renderCarousel() in ViewManager.cpp for the math. There's no separate
 // page-position indicator (e.g. a dot strip); the list itself communicates
-// position.
+// position. Alert/notification-style views (IView::isAlert()) are excluded
+// from this menu entirely - they're transient popups only ever shown when
+// their inbound command arrives (see onCommand()), not something you dial
+// or tap your way to.
 // From the carousel, a view can be entered (becomes "focused" and fills the
 // whole screen) three ways:
 //   - rotate the encoder to scroll to an entry, then touch the content or
@@ -105,6 +108,19 @@ private:
 
     std::vector<Entry> _entries;
     size_t _activeIndex = 0;
+
+    // Indices into _entries for entries that appear in the navigable home
+    // carousel - alert/notification-style entries (IView::isAlert()) are
+    // excluded here since they're popups triggered only by an inbound
+    // command (see onCommand()), never menu items you dial/tap to. Rebuilt
+    // alongside _entries in rebuild(). _menuPosition is the highlighted
+    // position *within this list* (not an _entries index); moveHighlight()
+    // and renderCarousel() operate on it, and enterFocused() is always
+    // called with _menuIndices[_menuPosition] to resolve it to a real
+    // _entries index.
+    std::vector<size_t> _menuIndices;
+    size_t _menuPosition = 0;
+
     Mode _mode = Mode::Carousel;
     IView::ReportCallback _reportCallback;
     ClockView _idleView;
