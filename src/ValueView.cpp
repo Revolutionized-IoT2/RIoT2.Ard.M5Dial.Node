@@ -2,10 +2,13 @@
 
 #include <memory>
 
+#include "ViewColors.h"
 #include "ViewFactory.h"
 
 namespace {
 constexpr size_t kMaxSlots = 2;
+const uint16_t kValueColor = ViewColors::toRGB565(ViewColors::Value);           // this view's assigned color
+const uint16_t kLabelColor = ViewColors::toRGB565(ViewColors::ValueSecondary);  // pale label accent
 }  // namespace
 
 void ValueView::begin(const DeviceConfiguration& config) {
@@ -32,10 +35,10 @@ void ValueView::onCommand(const Command& command) {
 
 void ValueView::render(M5Canvas& canvas) {
     canvas.fillScreen(BLACK);
-    canvas.setTextColor(WHITE);
     canvas.setTextDatum(middle_center);
 
     if (_slots.empty()) {
+        canvas.setTextColor(WHITE);
         canvas.setTextSize(2);
         canvas.drawString("No values", canvas.width() / 2, canvas.height() / 2);
         return;
@@ -45,9 +48,11 @@ void ValueView::render(M5Canvas& canvas) {
     for (size_t i = 0; i < _slots.size(); ++i) {
         int centerY = static_cast<int>(i) * rowHeight + rowHeight / 2;
 
+        canvas.setTextColor(kLabelColor);
         canvas.setTextSize(1);
         canvas.drawString(_slots[i].name, canvas.width() / 2, centerY - 14);
 
+        canvas.setTextColor(kValueColor);
         canvas.setTextSize(3);
         canvas.drawString(_slots[i].value + _slots[i].unit, canvas.width() / 2, centerY + 10);
     }

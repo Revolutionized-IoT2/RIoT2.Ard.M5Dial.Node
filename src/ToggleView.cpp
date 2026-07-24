@@ -7,8 +7,9 @@
 #include "ViewFactory.h"
 
 namespace {
-const uint16_t kOnColor = ViewColors::toRGB565(ViewColors::Toggle);  // this view's assigned color
-constexpr uint32_t kOffColor = 0x39C7;                               // dark grey
+const uint16_t kOnColor = ViewColors::toRGB565(ViewColors::Toggle);            // this view's assigned color
+const uint16_t kRingColor = ViewColors::toRGB565(ViewColors::ToggleSecondary);  // pale themed ring
+constexpr uint32_t kOffColor = 0x39C7;                                         // dark grey
 }  // namespace
 
 void ToggleView::begin(const DeviceConfiguration& config) {
@@ -61,7 +62,7 @@ void ToggleView::render(M5Canvas& canvas) {
     int radius = (cx < cy ? cx : cy) - 30;
 
     canvas.fillCircle(cx, cy, radius, _active ? kOnColor : kOffColor);
-    canvas.drawCircle(cx, cy, radius, WHITE);
+    canvas.drawCircle(cx, cy, radius, kRingColor);
 
     canvas.setTextColor(WHITE, _active ? kOnColor : kOffColor);
     canvas.setTextDatum(middle_center);

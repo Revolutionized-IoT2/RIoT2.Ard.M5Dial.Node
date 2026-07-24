@@ -7,8 +7,9 @@
 #include "ViewFactory.h"
 
 namespace {
-const uint16_t kNotificationColor = ViewColors::toRGB565(ViewColors::Notification);  // this view's assigned color
-constexpr uint16_t kBackground = 0x1082;                                             // near-black blue-grey
+const uint16_t kNotificationColor = ViewColors::toRGB565(ViewColors::Notification);          // this view's assigned color
+const uint16_t kSecondaryColor = ViewColors::toRGB565(ViewColors::NotificationSecondary);  // pale accent for secondary text
+constexpr uint16_t kBackground = 0x1082;                                                   // near-black blue-grey
 
 // Pulls a human-readable title/message out of a Command's loosely-typed
 // value: a plain string is used as the message directly, an object looks
@@ -89,6 +90,7 @@ void NotificationView::render(M5Canvas& canvas) {
     canvas.drawString(_title, cx, cy);
 
     if (_message.length() > 0) {
+        canvas.setTextColor(kSecondaryColor, kBackground);
         canvas.setTextSize(1);
         canvas.drawString(_message, cx, cy + 26);
     }
@@ -102,7 +104,7 @@ void NotificationView::render(M5Canvas& canvas) {
     int barWidth = 140;
     int barX = cx - barWidth / 2;
     int barY = canvas.height() - 28;
-    canvas.drawRect(barX, barY, barWidth, 6, 0x8410);
+    canvas.drawRect(barX, barY, barWidth, 6, kSecondaryColor);
     canvas.fillRect(barX + 1, barY + 1, static_cast<int>((barWidth - 2) * remaining), 4, kNotificationColor);
 }
 

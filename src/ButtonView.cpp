@@ -8,8 +8,9 @@
 
 namespace {
 constexpr int kDisplaySize = 240;
-const uint16_t kActiveColor = ViewColors::toRGB565(ViewColors::Button);  // this view's assigned color
-constexpr uint32_t kInactiveColor = 0x39C7;                              // dark grey
+const uint16_t kActiveColor = ViewColors::toRGB565(ViewColors::Button);           // this view's assigned color
+const uint16_t kBorderColor = ViewColors::toRGB565(ViewColors::ButtonSecondary);  // pale themed row border
+constexpr uint32_t kInactiveColor = 0x39C7;                                       // dark grey
 constexpr unsigned long kFlashMs = 200;
 }  // namespace
 
@@ -93,6 +94,7 @@ void ButtonView::render(M5Canvas& canvas) {
         uint32_t color = (_slots[i].active || flashing) ? kActiveColor : kInactiveColor;
 
         canvas.fillRect(4, y0 + 4, canvas.width() - 8, rowHeight - 8, color);
+        canvas.drawRect(4, y0 + 4, canvas.width() - 8, rowHeight - 8, kBorderColor);
         canvas.setTextColor(WHITE);
         canvas.setTextDatum(middle_center);
         canvas.setTextSize(2);

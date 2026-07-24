@@ -7,7 +7,8 @@
 #include "ViewFactory.h"
 
 namespace {
-const uint16_t kAlertColor = ViewColors::toRGB565(ViewColors::Alert);  // this view's assigned color
+const uint16_t kAlertColor = ViewColors::toRGB565(ViewColors::Alert);                    // this view's assigned color
+const uint16_t kAlertSecondaryColor = ViewColors::toRGB565(ViewColors::AlertSecondary);  // pale accent for secondary text
 
 // Pulls a human-readable title/message out of a Command's loosely-typed
 // value: a plain string is used as the message directly, an object looks
@@ -79,6 +80,7 @@ void AlertView::render(M5Canvas& canvas) {
     canvas.setTextSize(2);
     canvas.drawString(_title, cx, cy);
 
+    canvas.setTextColor(kAlertSecondaryColor, kAlertColor);
     if (_message.length() > 0) {
         canvas.setTextSize(1);
         canvas.drawString(_message, cx, cy + 26);

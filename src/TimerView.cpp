@@ -7,8 +7,8 @@
 #include "ViewFactory.h"
 
 namespace {
-const uint16_t kAccentColor = ViewColors::toRGB565(ViewColors::Timer);  // this view's assigned color
-constexpr uint32_t kTrackColor = 0x39C7;                                // dark grey
+const uint16_t kAccentColor = ViewColors::toRGB565(ViewColors::Timer);           // this view's assigned color
+const uint16_t kTrackColor = ViewColors::toRGB565(ViewColors::TimerSecondary);  // pale track
 }  // namespace
 
 void TimerView::begin(const DeviceConfiguration& config) {

@@ -7,7 +7,8 @@
 #include "ViewFactory.h"
 
 namespace {
-const uint16_t kBrowsingColor = ViewColors::toRGB565(ViewColors::Scene);  // this view's assigned color
+const uint16_t kBrowsingColor = ViewColors::toRGB565(ViewColors::Scene);       // this view's assigned color
+const uint16_t kHintColor = ViewColors::toRGB565(ViewColors::SceneSecondary);  // pale accent for hint text
 }  // namespace
 
 void SceneSelectorView::begin(const DeviceConfiguration& config) {
@@ -75,7 +76,7 @@ void SceneSelectorView::render(M5Canvas& canvas) {
     canvas.setTextSize(2);
     canvas.drawString(_items[index].name, cx, cy);
 
-    canvas.setTextColor(WHITE);
+    canvas.setTextColor(kHintColor);
     canvas.setTextSize(1);
     canvas.drawString(_browsing ? "rotate + tap to confirm" : "tap to browse", cx, cy + 100);
 }

@@ -3,6 +3,7 @@
 #include <memory>
 
 #include "Buzzer.h"
+#include "ViewColors.h"
 #include "ViewFactory.h"
 
 namespace {
@@ -18,6 +19,9 @@ const Swatch kSwatches[] = {
     {"White", 0xFFFF}, {"Warm White", 0xFEDA},
 };
 constexpr int kSwatchCount = sizeof(kSwatches) / sizeof(kSwatches[0]);
+
+const uint16_t kAccentColor = ViewColors::toRGB565(ViewColors::ColorScheme);            // this view's assigned color
+const uint16_t kPickingColor = ViewColors::toRGB565(ViewColors::ColorSchemeSecondary);  // pale highlight while picking
 
 }  // namespace
 
@@ -75,7 +79,7 @@ void ColorSchemeView::render(M5Canvas& canvas) {
     int radius = (cx < cy ? cx : cy) - 30;
 
     canvas.fillCircle(cx, cy, radius, kSwatches[index].color);
-    canvas.drawCircle(cx, cy, radius, WHITE);
+    canvas.drawCircle(cx, cy, radius, _picking ? kPickingColor : kAccentColor);
 
     canvas.setTextColor(WHITE, BLACK);
     canvas.setTextDatum(middle_center);
@@ -83,6 +87,7 @@ void ColorSchemeView::render(M5Canvas& canvas) {
     canvas.drawString(kSwatches[index].name, cx, canvas.height() - 20);
 
     if (_picking) {
+        canvas.setTextColor(kPickingColor, BLACK);
         canvas.setTextSize(1);
         canvas.drawString("rotate + tap to confirm", cx, 16);
     }
