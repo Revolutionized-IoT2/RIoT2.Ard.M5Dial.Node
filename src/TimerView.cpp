@@ -9,6 +9,8 @@
 namespace {
 const uint16_t kAccentColor = ViewColors::toRGB565(ViewColors::Timer);           // this view's assigned color
 const uint16_t kTrackColor = ViewColors::toRGB565(ViewColors::TimerSecondary);  // pale track
+constexpr int kRingCount = 6;                  // number of beeps in the "egg timer ring" pattern
+constexpr unsigned long kRingIntervalMs = 260;  // spacing between those beeps
 }  // namespace
 
 void TimerView::begin(const DeviceConfiguration& config) {
@@ -31,6 +33,7 @@ void TimerView::begin(const DeviceConfiguration& config) {
     if (_minutes > _maxMinutes) {
         _minutes = _maxMinutes;
     }
+    _beepOnComplete = findParameter(config.deviceParameters, "beepOnComplete", "false").equalsIgnoreCase("true");
 
     _phase = Phase::Setting;
     _totalSeconds = 0;
@@ -48,6 +51,7 @@ void TimerView::onTouch(int x, int y) {
             break;
         case Phase::Done:
             _phase = Phase::Setting;
+            _ringsRemaining = 0;  // stop any in-progress "egg timer ring" beeps
             Buzzer::tap();
             break;
     }
@@ -84,6 +88,7 @@ void TimerView::start() {
     _totalSeconds = _minutes * 60;
     _startMs = millis();
     _phase = Phase::Running;
+    _ringsRemaining = 0;  // in case a previous ring was still playing out
     Buzzer::confirm();
 }
 
@@ -94,7 +99,14 @@ void TimerView::cancel() {
 
 void TimerView::finish() {
     _phase = Phase::Done;
-    Buzzer::confirm();
+    if (_beepOnComplete) {
+        // First beep fires right away from render(); the rest follow at
+        // kRingIntervalMs apart without blocking the render loop.
+        _ringsRemaining = kRingCount;
+        _nextRingMs = millis();
+    } else {
+        Buzzer::confirm();
+    }
     if (_reportId.length() > 0) {
         publishReport(Report{_reportId, "0"});
     }
@@ -139,6 +151,12 @@ void TimerView::render(M5Canvas& canvas) {
     }
 
     if (_phase == Phase::Done) {
+        if (_ringsRemaining > 0 && millis() >= _nextRingMs) {
+            Buzzer::ring();
+            _ringsRemaining--;
+            _nextRingMs = millis() + kRingIntervalMs;
+        }
+
         canvas.fillScreen(kAccentColor);
         canvas.setTextDatum(middle_center);
         canvas.setTextColor(WHITE, kAccentColor);

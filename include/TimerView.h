@@ -11,7 +11,11 @@
 // countdown reaches zero it shows a "Time's up!" screen until tapped, which
 // dismisses it back to Setting. Duration is configured via deviceParameters:
 // "defaultMinutes" (default 5), "stepMinutes" (default 1), "maxMinutes"
-// (default 60) - the dial is clamped to [stepMinutes, maxMinutes].
+// (default 60) - the dial is clamped to [stepMinutes, maxMinutes]. An
+// optional boolean deviceParameter "beepOnComplete" (default false), when
+// "true", plays a repeating "egg timer ring" (a handful of Buzzer::ring()
+// beeps spaced out over render() calls, non-blocking) instead of the usual
+// single confirm chirp once the countdown finishes.
 //
 // Publishes a single Report with the remaining time ("0") only once the
 // countdown completes - it does not report every second while running.
@@ -39,9 +43,12 @@ private:
     int _stepMinutes = 1;
     int _maxMinutes = 60;
     int _minutes = 5;
+    bool _beepOnComplete = false;
     Phase _phase = Phase::Setting;
     unsigned long _startMs = 0;
     int _totalSeconds = 0;
+    int _ringsRemaining = 0;
+    unsigned long _nextRingMs = 0;
 
     void start();
     void cancel();

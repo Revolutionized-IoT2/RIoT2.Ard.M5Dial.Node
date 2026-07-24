@@ -23,4 +23,12 @@ inline void error() {
     M5Dial.Speaker.tone(300, 250);
 }
 
+// A short bright "bell" tone. Callers that want a longer attention-grabbing
+// pattern (e.g. TimerView's optional "egg timer ring" on completion) call
+// this repeatedly from their own non-blocking timer/state machine rather
+// than this function blocking itself.
+inline void ring() {
+    M5Dial.Speaker.tone(2600, 120);
+}
+
 }  // namespace Buzzer
