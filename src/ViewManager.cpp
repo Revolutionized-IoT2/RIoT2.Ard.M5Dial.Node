@@ -1,5 +1,6 @@
 #include "ViewManager.h"
 
+#include "Icons.h"
 #include "ViewColors.h"
 #include "ViewFactory.h"
 
@@ -25,17 +26,18 @@ constexpr int ViewManager::kPrevBandBottomY;
 constexpr int ViewManager::kNextBandTopY;
 
 namespace {
-// Simple vector glyph drawn inside a view's icon bubble, chosen per view
-// type so each is recognizable at a glance instead of a two-letter label.
-// Each named entry (other than Generic) corresponds to the Google Material
-// Symbols icon (https://fonts.google.com/icons) assigned to that view type:
-// power_settings_new, colors, monitoring, percent, toggle_on, sliders, scene,
-// schedule.
-enum class IconGlyph { Generic, Power, Colors, Monitoring, Percent, ToggleOn, Sliders, Scene, Schedule, Warning, Bell, Timer };
-
+// Icon drawn inside a view's icon bubble, chosen per view type from a real
+// PNG icon asset (Assets/icons/*.png, embedded as byte arrays in Icons.cpp)
+// instead of a hand-drawn vector glyph. Each icon PNG already bakes in its
+// view's Primary color as a filled circle background with a white glyph on
+// top, so `icon`/`iconLen` alone fully determine what's drawn - `r`/`g`/`b`
+// (the Primary color, see ViewColors.h) is only used for the title text
+// color and, for unstyled fallback entries (no icon asset registered), a
+// plain colored dot.
 struct ViewStyle {
     uint8_t r, g, b;
-    IconGlyph icon;
+    const uint8_t* icon;
+    size_t iconLen;
 };
 
 // One distinct, vividly-saturated color + icon per known view type, keyed by
@@ -43,32 +45,38 @@ struct ViewStyle {
 // read as "no icon"/background on the panel).
 const ViewStyle& styleForClassFullName(const String& classFullName, size_t fallbackIndex) {
     static const ViewStyle kButton = {ViewColors::Button.r, ViewColors::Button.g, ViewColors::Button.b,
-                                       IconGlyph::Power};
+                                       Icons::kButtonPng, Icons::kButtonPngLen};
     static const ViewStyle kColorScheme = {ViewColors::ColorScheme.r, ViewColors::ColorScheme.g,
-                                            ViewColors::ColorScheme.b, IconGlyph::Colors};
-    static const ViewStyle kValue = {ViewColors::Value.r, ViewColors::Value.g, ViewColors::Value.b,
-                                      IconGlyph::Monitoring};
+                                            ViewColors::ColorScheme.b, Icons::kColorSchemePng,
+                                            Icons::kColorSchemePngLen};
+    static const ViewStyle kValue = {ViewColors::Value.r, ViewColors::Value.g, ViewColors::Value.b, Icons::kValuePng,
+                                      Icons::kValuePngLen};
     static const ViewStyle kPercentage = {ViewColors::Percentage.r, ViewColors::Percentage.g,
-                                           ViewColors::Percentage.b, IconGlyph::Percent};
+                                           ViewColors::Percentage.b, Icons::kPercentagePng,
+                                           Icons::kPercentagePngLen};
     static const ViewStyle kToggle = {ViewColors::Toggle.r, ViewColors::Toggle.g, ViewColors::Toggle.b,
-                                       IconGlyph::ToggleOn};
+                                       Icons::kTogglePng, Icons::kTogglePngLen};
     static const ViewStyle kSlider = {ViewColors::Slider.r, ViewColors::Slider.g, ViewColors::Slider.b,
-                                       IconGlyph::Sliders};
-    static const ViewStyle kScene = {ViewColors::Scene.r, ViewColors::Scene.g, ViewColors::Scene.b, IconGlyph::Scene};
-    static const ViewStyle kClock = {ViewColors::Clock.r, ViewColors::Clock.g, ViewColors::Clock.b,
-                                      IconGlyph::Schedule};
-    static const ViewStyle kAlert = {ViewColors::Alert.r, ViewColors::Alert.g, ViewColors::Alert.b,
-                                      IconGlyph::Warning};
+                                       Icons::kSliderPng, Icons::kSliderPngLen};
+    static const ViewStyle kScene = {ViewColors::Scene.r, ViewColors::Scene.g, ViewColors::Scene.b, Icons::kScenePng,
+                                      Icons::kScenePngLen};
+    static const ViewStyle kClock = {ViewColors::Clock.r, ViewColors::Clock.g, ViewColors::Clock.b, Icons::kClockPng,
+                                      Icons::kClockPngLen};
+    static const ViewStyle kAlert = {ViewColors::Alert.r, ViewColors::Alert.g, ViewColors::Alert.b, Icons::kAlertPng,
+                                      Icons::kAlertPngLen};
     static const ViewStyle kNotification = {ViewColors::Notification.r, ViewColors::Notification.g,
-                                             ViewColors::Notification.b, IconGlyph::Bell};
-    static const ViewStyle kTimer = {ViewColors::Timer.r, ViewColors::Timer.g, ViewColors::Timer.b, IconGlyph::Timer};
+                                             ViewColors::Notification.b, Icons::kNotificationPng,
+                                             Icons::kNotificationPngLen};
+    static const ViewStyle kTimer = {ViewColors::Timer.r, ViewColors::Timer.g, ViewColors::Timer.b, Icons::kTimerPng,
+                                      Icons::kTimerPngLen};
 
     // Vivid fallback palette (no black/gray) for any classFullName not
-    // explicitly styled above, cycled by the entry's position.
+    // explicitly styled above, cycled by the entry's position. No icon
+    // asset applies, so a plain colored dot is drawn instead (see
+    // drawViewIcon()).
     static const ViewStyle kFallback[] = {
-        {40, 110, 240, IconGlyph::Generic},   {40, 180, 90, IconGlyph::Generic},
-        {235, 140, 20, IconGlyph::Generic},   {190, 60, 220, IconGlyph::Generic},
-        {20, 175, 175, IconGlyph::Generic},   {220, 60, 95, IconGlyph::Generic},
+        {40, 110, 240, nullptr, 0}, {40, 180, 90, nullptr, 0},  {235, 140, 20, nullptr, 0},
+        {190, 60, 220, nullptr, 0}, {20, 175, 175, nullptr, 0}, {220, 60, 95, nullptr, 0},
     };
     constexpr size_t kFallbackCount = sizeof(kFallback) / sizeof(kFallback[0]);
 
@@ -104,93 +112,40 @@ String defaultSubtitleForClassFullName(const String& classFullName) {
     return "Tap to open";
 }
 
-// Draws a small recognizable glyph for `icon` inside a circle of radius `r`
-// centered at (cx, cy), in `ink` color. Each glyph approximates the Google
-// Material Symbols icon (https://fonts.google.com/icons) named in its case.
-void drawViewIcon(M5Canvas& canvas, IconGlyph icon, int cx, int cy, int r, uint16_t ink) {
-    switch (icon) {
-        case IconGlyph::Power:
-            // Material Symbols "power_settings_new": a broken circle with a
-            // vertical line through the gap at the top.
-            canvas.drawArc(cx, cy, r * 0.55f, r * 0.68f, 300, 600, ink);
-            canvas.drawWideLine(cx, cy - r * 0.9f, cx, cy - r * 0.15f, r * 0.09f, ink);
-            break;
-        case IconGlyph::Colors:
-            // Material Symbols "colors": a paint drop (teardrop) glyph.
-            canvas.fillCircle(cx, cy + r * 0.15f, r * 0.42f, ink);
-            canvas.fillTriangle(cx - r * 0.3f, cy - r * 0.05f, cx + r * 0.3f, cy - r * 0.05f, cx, cy - r * 0.6f, ink);
-            break;
-        case IconGlyph::Monitoring:
-            // Material Symbols "monitoring": an upward trending line chart.
-            canvas.drawWideLine(cx - r * 0.55f, cy + r * 0.3f, cx - r * 0.15f, cy - r * 0.05f, r * 0.09f, ink);
-            canvas.drawWideLine(cx - r * 0.15f, cy - r * 0.05f, cx + r * 0.15f, cy + r * 0.2f, r * 0.09f, ink);
-            canvas.drawWideLine(cx + r * 0.15f, cy + r * 0.2f, cx + r * 0.55f, cy - r * 0.45f, r * 0.09f, ink);
-            canvas.fillCircle(cx + r * 0.55f, cy - r * 0.45f, r * 0.1f, ink);
-            break;
-        case IconGlyph::Percent:
-            // Material Symbols "percent": two circles joined by a diagonal slash.
-            canvas.fillCircle(cx - r * 0.32f, cy - r * 0.32f, r * 0.16f, ink);
-            canvas.fillCircle(cx + r * 0.32f, cy + r * 0.32f, r * 0.16f, ink);
-            canvas.drawWideLine(cx - r * 0.5f, cy + r * 0.5f, cx + r * 0.5f, cy - r * 0.5f, r * 0.09f, ink);
-            break;
-        case IconGlyph::ToggleOn:
-            // Material Symbols "toggle_on": a simple pill-shaped switch track
-            // (outline only, so it stays a single flat tone) with a solid knob
-            // at the "on" (right) end.
-            canvas.drawRoundRect(cx - r * 0.55f, cy - r * 0.28f, r * 1.1f, r * 0.56f, r * 0.28f, ink);
-            canvas.fillCircle(cx + r * 0.27f, cy, r * 0.2f, ink);
-            break;
-        case IconGlyph::Sliders:
-            // Material Symbols "sliders": three vertical tracks with knobs at
-            // different levels.
-            for (int i = -1; i <= 1; ++i) {
-                float x = cx + i * r * 0.42f;
-                canvas.drawLine(x, cy - r * 0.65f, x, cy + r * 0.65f, ink);
-                canvas.fillCircle(x, cy - r * 0.3f * i, r * 0.15f, ink);
-            }
-            break;
-        case IconGlyph::Scene:
-            // Material Symbols "scene": a framed photo with a sun and mountain peaks.
-            canvas.drawRoundRect(cx - r * 0.65f, cy - r * 0.5f, r * 1.3f, r * 1.0f, r * 0.12f, ink);
-            canvas.fillCircle(cx - r * 0.3f, cy - r * 0.2f, r * 0.12f, ink);
-            canvas.fillTriangle(cx - r * 0.5f, cy + r * 0.35f, cx - r * 0.05f, cy - r * 0.05f, cx + r * 0.35f, cy + r * 0.35f,
-                                ink);
-            canvas.fillTriangle(cx + r * 0.05f, cy + r * 0.35f, cx + r * 0.4f, cy + r * 0.05f, cx + r * 0.55f, cy + r * 0.35f,
-                                ink);
-            break;
-        case IconGlyph::Schedule:
-            // Material Symbols "schedule": clock face with hour/minute hands.
-            canvas.drawCircle(cx, cy, r * 0.75f, ink);
-            canvas.drawLine(cx, cy, cx, cy - r * 0.45f, ink);
-            canvas.drawLine(cx, cy, cx + r * 0.32f, cy + r * 0.1f, ink);
-            break;
-        case IconGlyph::Warning:
-            // Material Symbols "warning": a triangle with an exclamation mark.
-            canvas.fillTriangle(cx, cy - r * 0.7f, cx - r * 0.65f, cy + r * 0.55f, cx + r * 0.65f, cy + r * 0.55f, ink);
-            canvas.fillTriangle(cx, cy - r * 0.7f + r * 0.22f, cx - r * 0.65f + r * 0.14f, cy + r * 0.55f - r * 0.14f,
-                                cx + r * 0.65f - r * 0.14f, cy + r * 0.55f - r * 0.14f, BLACK);
-            canvas.fillCircle(cx, cy + r * 0.28f, r * 0.08f, ink);
-            canvas.fillRect(cx - r * 0.06f, cy - r * 0.15f, r * 0.12f, r * 0.3f, ink);
-            break;
-        case IconGlyph::Bell:
-            // Material Symbols "notifications": a bell body with a clapper.
-            canvas.fillTriangle(cx - r * 0.5f, cy + r * 0.15f, cx + r * 0.5f, cy + r * 0.15f, cx, cy - r * 0.6f, ink);
-            canvas.fillCircle(cx, cy - r * 0.05f, r * 0.42f, ink);
-            canvas.fillRoundRect(cx - r * 0.55f, cy + r * 0.05f, r * 1.1f, r * 0.16f, r * 0.08f, ink);
-            canvas.fillCircle(cx, cy + r * 0.4f, r * 0.14f, ink);
-            break;
-        case IconGlyph::Timer:
-            // Material Symbols "timer": a stopwatch - a small crown button on
-            // top of a circular body, with a hand pointing off-center.
-            canvas.fillRect(cx - r * 0.12f, cy - r * 0.95f, r * 0.24f, r * 0.18f, ink);
-            canvas.drawCircle(cx, cy, r * 0.7f, ink);
-            canvas.drawLine(cx, cy, cx + r * 0.35f, cy - r * 0.35f, ink);
-            break;
-        case IconGlyph::Generic:
-        default:
-            canvas.fillCircle(cx, cy, r * 0.3f, ink);
-            break;
+// Native pixel size (square) of the icon PNGs in Assets/icons/.
+constexpr int kIconNativeSize = 42;
+
+// Draws a view's icon centered at (cx, cy), scaled so it roughly fills a
+// circle of radius `r`. When an icon PNG is available (`style.icon` set),
+// it's drawn at full brightness - it already bakes in the view's Primary
+// color as its own circle background, so no separate background fill is
+// needed, and its baked-in pixel colors can't be dimmed without decoding
+// it. `dim` (0-1) is therefore only applied to the plain-dot fallback used
+// by unstyled entries, muting its color for the carousel's dimmed prev/next
+// peeks (which rely on `r` alone being smaller than the focused icon).
+void drawViewIcon(M5Canvas& canvas, const ViewStyle& style, int cx, int cy, int r, float dim = 1.0f) {
+    if (style.icon != nullptr) {
+        // NOTE: intentionally NOT using datum=middle_center here. M5GFX's
+        // image datum centering falls back to the *whole canvas* size
+        // (240x240) whenever maxWidth/maxHeight are left at 0, so
+        // "center within box" ends up centering the small ~34px icon
+        // inside a 240px box and offsetting it ~100px right/down instead
+        // of leaving it at (cx, cy) - drawing icons far from their
+        // intended spot. Computing the top-left corner ourselves and using
+        // the default top_left datum sidesteps that box-centering math
+        // entirely.
+        float scale = (r * 2.0f) / kIconNativeSize;
+        int scaledSize = static_cast<int>(kIconNativeSize * scale);
+        int drawX = cx - scaledSize / 2;
+        int drawY = cy - scaledSize / 2;
+        canvas.drawPng(style.icon, style.iconLen, drawX, drawY, 0, 0, 0, 0, scale, scale);
+        return;
     }
+
+    uint16_t fillColor = canvas.color565(static_cast<uint8_t>(style.r * dim), static_cast<uint8_t>(style.g * dim),
+                                          static_cast<uint8_t>(style.b * dim));
+    canvas.fillCircle(cx, cy, r, fillColor);
+    canvas.fillCircle(cx, cy, r * 0.3f, BLACK);
 }
 
 // Draws `text` left-aligned starting at (x, y), starting at `startSize` and
@@ -433,8 +388,7 @@ void ViewManager::renderCarousel(M5Canvas& canvas) {
     const ViewStyle& style = styleForClassFullName(activeEntry.config.classFullName, _activeIndex);
     uint16_t styleColor = canvas.color565(style.r, style.g, style.b);
 
-    canvas.fillCircle(kIconCenterX, kIconCenterY, kIconRadius, styleColor);
-    drawViewIcon(canvas, style.icon, kIconCenterX, kIconCenterY, kIconRadius, BLACK);
+    drawViewIcon(canvas, style, kIconCenterX, kIconCenterY, kIconRadius);
 
     int maxTextWidth = kDotsX - kTextX - 14;
     drawFittedLeftText(canvas, activeEntry.config.name, kTextX, kTitleY, maxTextWidth, styleColor);
@@ -452,9 +406,7 @@ void ViewManager::renderCarousel(M5Canvas& canvas) {
     if (count > 1) {
         size_t nextIndex = (_activeIndex + 1) % count;
         const ViewStyle& nextStyle = styleForClassFullName(_entries[nextIndex].config.classFullName, nextIndex);
-        uint16_t nextColor = canvas.color565(nextStyle.r / 3, nextStyle.g / 3, nextStyle.b / 3);
-        canvas.fillCircle(kNextPeekCenterX, kNextPeekCenterY, kNextPeekRadius, nextColor);
-        drawViewIcon(canvas, nextStyle.icon, kNextPeekCenterX, kNextPeekCenterY, kNextPeekRadius, BLACK);
+        drawViewIcon(canvas, nextStyle, kNextPeekCenterX, kNextPeekCenterY, kNextPeekRadius, 1.0f / 3.0f);
     }
 
     // Mirrors the next-entry peek above the current content, so turning the
@@ -463,9 +415,7 @@ void ViewManager::renderCarousel(M5Canvas& canvas) {
     if (count > 1) {
         size_t prevIndex = (_activeIndex + count - 1) % count;
         const ViewStyle& prevStyle = styleForClassFullName(_entries[prevIndex].config.classFullName, prevIndex);
-        uint16_t prevColor = canvas.color565(prevStyle.r / 3, prevStyle.g / 3, prevStyle.b / 3);
-        canvas.fillCircle(kPrevPeekCenterX, kPrevPeekCenterY, kPrevPeekRadius, prevColor);
-        drawViewIcon(canvas, prevStyle.icon, kPrevPeekCenterX, kPrevPeekCenterY, kPrevPeekRadius, BLACK);
+        drawViewIcon(canvas, prevStyle, kPrevPeekCenterX, kPrevPeekCenterY, kPrevPeekRadius, 1.0f / 3.0f);
     }
 
     // Vertical page-position dot strip along the right edge: a sliding

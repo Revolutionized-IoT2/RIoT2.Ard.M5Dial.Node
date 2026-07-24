@@ -7,7 +7,7 @@
 #include "ViewFactory.h"
 
 namespace {
-const uint16_t kTrackColor = ViewColors::toRGB565(ViewColors::lighten(ViewColors::Slider, 0.8f));  // pale track
+const uint16_t kTrackColor = ViewColors::toRGB565(ViewColors::SliderSecondary);  // pale track
 const uint16_t kValueColor = ViewColors::toRGB565(ViewColors::Slider);  // this view's assigned color
 const uint16_t kAdjustColor = ViewColors::toRGB565(ViewColors::lighten(ViewColors::Slider, 0.5f));  // brighter, on-theme
 const uint16_t kTickColor = ViewColors::toRGB565(ViewColors::lighten(ViewColors::Slider, 0.4f));  // tick dots on track

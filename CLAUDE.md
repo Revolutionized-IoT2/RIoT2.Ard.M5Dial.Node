@@ -245,6 +245,44 @@ and media-remote widgets):
 - **ClockView** — idle/screensaver view (time + maybe next event) shown after inactivity timeout
   or as `deviceConfigurations[0]`.
 
+## View Colors & Icons
+
+Each known view type (keyed by `classFullName`) has an assigned **Primary** color, **Secondary**
+color, and icon, forming a single design palette shared across the app:
+
+- **Primary** — the view's main accent color. Used for carousel title text, dot-strip highlight,
+  and each view's own "active"/value accent (`ViewColors::<Name>` in
+  [include/ViewColors.h](include/ViewColors.h)).
+- **Secondary** — a pale companion color, used for backgrounds/tracks/highlighted states
+  (`ViewColors::<Name>Secondary`), e.g. `SliderView`'s track and `PercentageView`'s
+  adjust-mode highlight.
+- **Icon** — a 42×42 RGBA PNG in [Assets/icons/](Assets/icons/), embedded as a byte array in
+  [src/Icons.cpp](src/Icons.cpp) / [include/Icons.h](include/Icons.h) and drawn via
+  `M5Canvas::drawPng()` (see `drawViewIcon()` in [src/ViewManager.cpp](src/ViewManager.cpp)).
+  Each icon PNG already bakes in that view's Primary color as a filled circle background with a
+  white glyph on top, so the carousel draws it directly without a separate background fill.
+
+| View | Primary | Secondary | Icon |
+| --- | --- | --- | --- |
+| `AlertView` | `#b71c1c` | `#ffcdd2` | `Assets/icons/Alert.png` |
+| `ButtonView` | `#1a237e` | `#c5cae9` | `Assets/icons/Button.png` |
+| `ClockView` | `#311b92` | `#d1c4e9` | `Assets/icons/Clock.png` |
+| `ColorSchemeView` | `#4a148c` | `#e1bee7` | `Assets/icons/ColorScheme.png` |
+| `NotificationView` | `#0d47a1` | `#bbdefb` | `Assets/icons/Notification.png` |
+| `PercentageView` | `#006064` | `#b2ebf2` | `Assets/icons/Percentage.png` |
+| `SceneSelectorView` | `#1b5e20` | `#c8e6c9` | `Assets/icons/SceneSelector.png` |
+| `SliderView` | `#bf360c` | `#ffccbc` | `Assets/icons/Slider.png` |
+| `TimerView` | `#880e4f` | `#f8bbd0` | `Assets/icons/Timer.png` |
+| `ToggleView` | `#01579b` | `#b3e5fc` | `Assets/icons/Toggle.png` |
+| `ValueView` | `#004d40` | `#b2dfdb` | `Assets/icons/Value.png` |
+
+Any `classFullName` not in this table (an unrecognized/custom view) falls back to a vivid color
+cycled by carousel position and a plain colored dot instead of a PNG icon — see the `kFallback`
+palette in `styleForClassFullName()` in [src/ViewManager.cpp](src/ViewManager.cpp). When adding a
+new built-in view type, add its Primary/Secondary colors to
+[include/ViewColors.h](include/ViewColors.h), drop a matching 42×42 PNG in
+[Assets/icons/](Assets/icons/), and wire both into `styleForClassFullName()`.
+
 ## Roadmap
 
 ### Phase 1 — Connectivity Foundation
