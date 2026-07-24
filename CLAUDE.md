@@ -250,7 +250,10 @@ and media-remote widgets):
   `Command` arrives, interrupting whatever's currently on screen; auto-dismisses or requires a tap
   to acknowledge.
 - **ClockView** — idle/screensaver view (time + maybe next event) shown after inactivity timeout
-  or as `deviceConfigurations[0]`.
+  or as `deviceConfigurations[0]`. Views doing ongoing background work while focused (e.g.
+  `TimerView` actively counting down) can override `IView::keepsAwake()` to suppress this timeout,
+  since a countdown's own completion (buzzer, report) only fires from inside its `render()` and
+  would otherwise stall while the idle screen is shown instead.
 
 ## View Colors & Icons
 

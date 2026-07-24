@@ -38,6 +38,15 @@ public:
     // using the encoder to move between carousel items.
     virtual bool isInteracting() const { return false; }
 
+    // Whether this view is doing ongoing background work that needs to keep
+    // rendering (e.g. TimerView actively counting down) even without new
+    // touch/encoder/button input. While this returns true and the view is
+    // focused, the ViewManager suppresses its idle/ClockView timeout - a
+    // countdown wouldn't otherwise advance its own completion (buzzer,
+    // report) once the idle screen takes over rendering, since that only
+    // happens from inside the view's own render().
+    virtual bool keepsAwake() const { return false; }
+
     // Apply an inbound command addressed to one of this view's commandTemplates.
     virtual void onCommand(const Command& command) { (void)command; }
 

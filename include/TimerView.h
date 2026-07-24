@@ -27,6 +27,7 @@ public:
     void onEncoderChange(int delta) override;
     void onCommand(const Command& command) override;
     bool isInteracting() const override { return _phase == Phase::Setting; }
+    bool keepsAwake() const override { return _phase == Phase::Running; }
     void render(M5Canvas& canvas) override;
 
 private:

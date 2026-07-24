@@ -538,7 +538,15 @@ void ViewManager::render(M5Canvas& canvas) {
         return;
     }
 
-    if (!_idle && millis() - _lastInputMs >= kIdleTimeoutMs) {
+    // Views doing ongoing background work while focused (e.g. TimerView
+    // actively counting down) suppress the idle/ClockView timeout - keep
+    // bumping _lastInputMs so the idle screen never takes over their
+    // rendering, since a countdown's own completion (buzzer, report) only
+    // fires from inside its render().
+    bool focusedViewKeepsAwake = _mode == Mode::Focused && activeView() && activeView()->keepsAwake();
+    if (focusedViewKeepsAwake) {
+        _lastInputMs = millis();
+    } else if (!_idle && millis() - _lastInputMs >= kIdleTimeoutMs) {
         _idle = true;
     }
 
