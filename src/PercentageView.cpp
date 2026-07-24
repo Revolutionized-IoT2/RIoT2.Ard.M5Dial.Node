@@ -9,9 +9,9 @@
 constexpr int PercentageView::kStep;
 
 namespace {
-constexpr uint32_t kTrackColor = 0x39C7;  // dark grey
+const uint16_t kTrackColor = ViewColors::toRGB565(ViewColors::PercentageSecondary);  // pale track, per CLAUDE.md
 const uint16_t kValueColor = ViewColors::toRGB565(ViewColors::Percentage);  // this view's assigned color
-const uint16_t kAdjustColor = ViewColors::toRGB565(ViewColors::PercentageSecondary);  // brighter, on-theme
+const uint16_t kAdjustColor = ViewColors::toRGB565(ViewColors::lighten(ViewColors::Percentage, 0.5f));  // brighter, on-theme
 }  // namespace
 
 void PercentageView::begin(const DeviceConfiguration& config) {
