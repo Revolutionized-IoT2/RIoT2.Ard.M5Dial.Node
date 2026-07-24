@@ -93,7 +93,7 @@ private:
     static constexpr int kIconRadiusMin = 10;
     static constexpr int kArcAmplitude = 46;       // max rightward shift for the furthest visible rows
     static constexpr int kArcRange = 130;          // pixel offset from center at which the arc shift maxes out
-    static constexpr int kMaxTextWidth = 150;
+    static constexpr int kMaxTextWidth = 160;
     static constexpr float kScrollEase = 0.35f;    // 0..1 smoothing factor applied to _scrollPosition each frame
 
     // Touch is split into three horizontal bands rather than precise

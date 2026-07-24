@@ -142,28 +142,27 @@ void drawViewIcon(M5Canvas& canvas, const ViewStyle& style, int cx, int cy, int 
 }
 
 // Draws `text` left-aligned starting at (x, y), starting at `startSize` and
-// shrinking down to size 1 (and, as a last resort, truncating with an
-// ellipsis) so it never grows wider than `maxWidth` and spills over
-// neighboring elements (used for the carousel's title/subtitle text block).
+// stepping down one size at a time until it fits within `maxWidth` (and, as
+// a last resort, truncating with an ellipsis at size 1) so it never spills
+// over neighboring elements (used for the carousel's title/subtitle text
+// block). Stepping down one size at a time (rather than jumping straight to
+// size 1) matters now that the focused row's title uses a larger
+// `startSize` - a merely-long name should drop to a still-readable
+// intermediate size instead of shrinking all the way down.
 void drawFittedLeftText(M5Canvas& canvas, const String& text, int x, int y, int maxWidth, uint16_t color,
                         int startSize = 2) {
     canvas.setTextColor(color);
     canvas.setTextDatum(middle_left);
 
-    canvas.setTextSize(startSize);
-    if (canvas.textWidth(text) <= maxWidth) {
-        canvas.drawString(text, x, y);
-        return;
-    }
-
-    if (startSize > 1) {
-        canvas.setTextSize(1);
+    for (int size = startSize; size >= 1; --size) {
+        canvas.setTextSize(size);
         if (canvas.textWidth(text) <= maxWidth) {
             canvas.drawString(text, x, y);
             return;
         }
     }
 
+    canvas.setTextSize(1);
     String truncated = text;
     while (truncated.length() > 1 && canvas.textWidth(truncated + "..") > maxWidth) {
         truncated.remove(truncated.length() - 1);
@@ -424,7 +423,15 @@ void ViewManager::renderCarousel(M5Canvas& canvas) {
         uint16_t titleColor = canvas.color565(gray, gray, gray);
 
         if (focused) {
-            drawFittedLeftText(canvas, entry.config.name, textX, rowY - 10, maxTextWidth, titleColor, 2);
+            // The focused row is alone (no neighboring rows fighting for the
+            // same horizontal band), so let its title use the full width
+            // remaining to the panel's edge - rather than the same
+            // arc-shrunk `maxTextWidth` budget shared rows use - and start
+            // from a larger size so it's always rendered as big as the
+            // screen allows, only stepping down for names that are too long
+            // to fit even then.
+            int maxWidthFocused = canvas.width() - textX - 6;
+            drawFittedLeftText(canvas, entry.config.name, textX, rowY - 13, maxWidthFocused, titleColor, 4);
 
             String subtitle = findParameter(entry.config.deviceParameters, "subHeader", "");
             if (subtitle.length() == 0) {
@@ -432,9 +439,13 @@ void ViewManager::renderCarousel(M5Canvas& canvas) {
             }
             if (subtitle.length() > 0) {
                 uint16_t subtitleColor = canvas.color565(90, 90, 90);
-                drawFittedLeftText(canvas, subtitle, textX, rowY + 14, maxTextWidth, subtitleColor, 1);
+                drawFittedLeftText(canvas, subtitle, textX, rowY + 17, maxWidthFocused, subtitleColor, 1);
             }
         } else {
+            // Unfocused rows always render at the same small, fixed size
+            // (no per-row growing/shrinking) so the whole scrolled list
+            // reads as a uniform, tiny "list" contrasted against the single
+            // large focused row.
             drawFittedLeftText(canvas, entry.config.name, textX, rowY, maxTextWidth, titleColor, 1);
         }
     }
