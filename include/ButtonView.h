@@ -6,10 +6,13 @@
 
 #include "IView.h"
 
-// 1-4 momentary buttons stacked vertically. Tapping a button publishes a
-// Report (id -> "true") for its reportTemplate; an inbound Command addressed
-// to the matching commandTemplate.id (correlated by shared `address`) sets
-// that button's highlighted/on-off visual state.
+// 1-4 momentary buttons arranged in a centered grid: a single button or a
+// centered pair for 1-2 buttons, a 2x2 grid for 3-4. Tapping a button
+// publishes a Report (id -> "true") for its reportTemplate; an inbound
+// Command addressed to the matching commandTemplate.id (correlated by
+// shared `address`) sets that button's highlighted/on-off visual state.
+// The view's own header/subheader text come from the "header"/"subHeader"
+// deviceParameters.
 class ButtonView : public IView {
 public:
     void begin(const DeviceConfiguration& config) override;
@@ -27,6 +30,8 @@ private:
     };
 
     std::vector<Slot> _slots;
+    String _header;
+    String _subHeader;
 
     int slotAt(int x, int y) const;
 };
