@@ -191,15 +191,17 @@ Fetched via `GET {apiBaseUrl}api/Nodes/{id}/configuration`:
   `isInteracting()` (e.g. an "adjust value" submode); otherwise encoder rotation does nothing
   (it no longer scrolls the list — that only happens on the carousel). Touch is forwarded
   directly to the focused View, which decides what it means — Views never need the physical
-  button. The physical button is reserved exclusively as the "return to the home carousel"
-  gesture: pressing it while a View is focused always calls back to the carousel (a no-op while
-  already on the carousel), regardless of what the focused View does with touch/encoder input.
+  button. The physical button is the "confirm" gesture instead: on the carousel, pressing it
+  enters the currently highlighted entry (the same as touching the content); while a View is
+  focused, pressing it instead always returns to the carousel, regardless of what the focused
+  View does with touch/encoder input.
 - **View interface:** Each View should implement a common interface, e.g.:
   - `begin(DeviceConfiguration&)` — one-time setup from config.
   - `onEnter()` / `onExit()` — lifecycle when the carousel focuses/unfocuses this view.
   - `onEncoderChange(delta)` / `onTouch(...)` — input handling (Views are driven only by touch
-    and the bezel/encoder; the physical button is handled entirely by `ViewManager` to return to
-    the carousel and is never routed to a View).
+    and the bezel/encoder; the physical button is handled entirely by `ViewManager` — entering a
+    view from the carousel or returning to it from a focused view — and is never routed to a
+    View).
   - `onCommand(Command&)` — apply an inbound command addressed to one of this view's
     `commandTemplates`.
   - `render()` — draw to the M5Dial's canvas/sprite.

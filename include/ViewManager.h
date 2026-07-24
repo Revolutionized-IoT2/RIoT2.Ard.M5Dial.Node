@@ -12,26 +12,27 @@
 #include "IView.h"
 
 // Drives the on-device home carousel built from the orchestrator's
-// deviceConfigurations. Styled after compact round-display "smart button"
-// menu UIs (small colored icon + left-aligned title/subtitle, dimmed peeks
-// of the previous/next entries' icons above/below the current one, and a
-// vertical dot strip along the right edge showing page position with the
-// current entry as a diamond marker). Only ONE entry is shown at a time,
-// which scales to many views far better than a ring of icons (which gets
-// crowded/overlapping past a handful of entries).
+// deviceConfigurations. Styled after a vertically scrolling "belt"/coverflow
+// list (M5Dial-UserDemo's app_more_menu): every view gets one row (icon +
+// name + view-type subtitle), stacked vertically and scrolled smoothly as
+// the dial turns, with the focused row centered at full size/brightness and
+// rows further away shrinking, dimming, and bowing rightward - see
+// renderCarousel() in ViewManager.cpp for the math. There's no separate
+// page-position indicator (e.g. a dot strip); the list itself communicates
+// position.
 // From the carousel, a view can be entered (becomes "focused" and fills the
-// whole screen) two ways:
-//   - rotate the encoder to page through entries, then touch the content to
-//     enter the current one; or
+// whole screen) three ways:
+//   - rotate the encoder to scroll to an entry, then touch the content or
+//     press the physical button to enter the current one; or
 //   - touch the content directly, which selects and enters it immediately.
 // Touching the top band moves to the previous entry; touching the bottom
 // band moves to the next entry.
 // While a view is focused, the encoder is forwarded to it only if it claims
 // the encoder via isInteracting() (e.g. an "adjust value" submode), and
 // touch is forwarded to it directly - views never need the physical button.
-// The physical button is reserved exclusively as the "go back to the home
-// carousel" gesture: a press while a view is focused always calls
-// exitToCarousel() (it's a no-op while already showing the carousel).
+// The physical button is the "confirm" gesture: on the carousel it enters
+// the currently highlighted entry (like touching the content); while a view
+// is focused it instead returns to the home carousel via exitToCarousel().
 class ViewManager {
 public:
     enum class Mode { Carousel, Focused };

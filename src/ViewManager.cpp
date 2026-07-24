@@ -291,12 +291,15 @@ void ViewManager::onButtonPress() {
         return;
     }
 
-    // The physical button is reserved exclusively for "go back to the home
-    // carousel" - views never see button presses (they're driven by touch
-    // and the bezel instead). Pressing it while already on the carousel is
-    // a no-op, since there's nowhere further back to go.
+    // The physical button is the "confirm" gesture: on the carousel it
+    // enters the currently highlighted entry (same as touching the
+    // content); while a View is focused it instead returns to the home
+    // carousel - views never see button presses themselves (they're driven
+    // by touch and the bezel instead).
     if (_mode == Mode::Focused) {
         exitToCarousel();
+    } else {
+        enterFocused(_activeIndex);
     }
 }
 
