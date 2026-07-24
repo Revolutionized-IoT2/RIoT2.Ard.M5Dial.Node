@@ -6,7 +6,7 @@
 #include "ViewFactory.h"
 
 namespace {
-constexpr size_t kMaxSlots = 2;
+constexpr size_t kMaxSlots = 4;
 const uint16_t kValueColor = ViewColors::toRGB565(ViewColors::Value);           // this view's assigned color
 const uint16_t kLabelColor = ViewColors::toRGB565(ViewColors::ValueSecondary);  // pale label accent
 }  // namespace
@@ -44,17 +44,51 @@ void ValueView::render(M5Canvas& canvas) {
         return;
     }
 
+    int cx = canvas.width() / 2;
+    int cy = canvas.height() / 2;
+
+    if (_slots.size() == kMaxSlots) {
+        // Exactly 4 values: one on top, two side-by-side in the middle, one
+        // on the bottom (compass style) - a plain vertical stack of 4 rows
+        // would be too cramped to read on a 240x240 round display.
+        struct Position {
+            int centerX;
+            int rowCenterY;
+        };
+        const int offsetX = 45;
+        const Position positions[kMaxSlots] = {
+            {cx, cy - 60},           // top
+            {cx - offsetX, cy + 4},  // middle-left
+            {cx + offsetX, cy + 4},  // middle-right
+            {cx, cy + 68},           // bottom
+        };
+
+        for (size_t i = 0; i < _slots.size(); ++i) {
+            const Position& pos = positions[i];
+
+            canvas.setTextColor(kLabelColor);
+            canvas.setTextSize(1);
+            canvas.drawString(_slots[i].name, pos.centerX, pos.rowCenterY - 14);
+
+            canvas.setTextColor(kValueColor);
+            canvas.setTextSize(2);
+            canvas.drawString(_slots[i].value + _slots[i].unit, pos.centerX, pos.rowCenterY + 10);
+        }
+        return;
+    }
+
+    // Fewer than 4 values: stack them in a centered vertical column.
     int rowHeight = canvas.height() / static_cast<int>(_slots.size());
     for (size_t i = 0; i < _slots.size(); ++i) {
         int centerY = static_cast<int>(i) * rowHeight + rowHeight / 2;
 
         canvas.setTextColor(kLabelColor);
         canvas.setTextSize(1);
-        canvas.drawString(_slots[i].name, canvas.width() / 2, centerY - 14);
+        canvas.drawString(_slots[i].name, cx, centerY - 14);
 
         canvas.setTextColor(kValueColor);
         canvas.setTextSize(3);
-        canvas.drawString(_slots[i].value + _slots[i].unit, canvas.width() / 2, centerY + 10);
+        canvas.drawString(_slots[i].value + _slots[i].unit, cx, centerY + 10);
     }
 }
 
