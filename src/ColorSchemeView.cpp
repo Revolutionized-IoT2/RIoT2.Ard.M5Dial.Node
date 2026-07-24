@@ -6,7 +6,6 @@
 #include <vector>
 
 #include "Buzzer.h"
-#include "ViewColors.h"
 #include "ViewFactory.h"
 
 namespace {
@@ -17,9 +16,6 @@ constexpr float kMainColorStep = 360.0f / kMainColorCount;
 constexpr int kWheelSegments = 36;  // 10-degree wedges around the ring - still a smooth
                                      // gradient, but half the fillArc() calls per frame
 constexpr int kRingWidth = 34;      // wider than a plain hue ring - easier to tap a shade
-
-const uint16_t kAccentColor = ViewColors::toRGB565(ViewColors::ColorScheme);            // this view's assigned color
-const uint16_t kPickingColor = ViewColors::toRGB565(ViewColors::ColorSchemeSecondary);  // pale highlight while picking
 
 struct Geometry {
     int cx, cy, outerR, innerR, swatchRadius;
@@ -55,6 +51,14 @@ float angleFromCenterDeg(int x, int y, int cx, int cy) {
 // `fillArc()` actually expects, so the rendered rim lines up with the
 // marker/hit-testing math instead of sitting a quarter-turn off.
 float toLibraryAngle(float degNorthClockwise) { return degNorthClockwise - 90.0f; }
+
+// White text on a dark background color, black text on a light one, using
+// the standard perceived-luminance weighting (so labels stay readable
+// against any swatch color they're drawn on top of).
+uint16_t contrastTextColor(uint8_t r, uint8_t g, uint8_t b) {
+    float luminance = 0.299f * r + 0.587f * g + 0.114f * b;
+    return luminance >= 140.0f ? BLACK : WHITE;
+}
 
 float normalizeHue(float hue) {
     hue = fmodf(hue, 360.0f);
@@ -301,12 +305,12 @@ void ColorSchemeView::render(M5Canvas& canvas) {
     canvas.fillCircle(geo.cx, geo.cy, geo.swatchRadius, canvas.color565(sr, sg, sb));
 
     canvas.setTextDatum(middle_center);
-    canvas.setTextSize(1);
-    canvas.setTextColor(_picking ? kPickingColor : kAccentColor, BLACK);
+    canvas.setTextSize(2);
+    canvas.setTextColor(contrastTextColor(sr, sg, sb), canvas.color565(sr, sg, sb));
     String label = _picking ? "rotate hue, tap to pick shade" : shadeToHex(hue, shadeT);
     int maxTextWidth = geo.swatchRadius * 2 - 16;
     std::vector<String> lines = wrapText(canvas, label, maxTextWidth);
-    const int lineHeight = 11;
+    const int lineHeight = 20;
     int startY = geo.cy - (static_cast<int>(lines.size()) - 1) * lineHeight / 2;
     for (size_t i = 0; i < lines.size(); ++i) {
         canvas.drawString(lines[i], geo.cx, startY + static_cast<int>(i) * lineHeight);
