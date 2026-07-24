@@ -137,7 +137,7 @@ Fetched via `GET {apiBaseUrl}api/Nodes/{id}/configuration`:
       "reportTemplates": [
         { "id": "...", "type": "0", "name": "Olohuone", "address": "btn-1", "parameters": { "icon": "p" } }
       ],
-      "deviceParameters": { "header": "Button view", "subHeader": "sub header" }
+      "deviceParameters": { "header": "Button view", "subHeader": "sub header", "menuSubHeader": "menu subtitle" }
     }
   ]
 }
@@ -183,9 +183,10 @@ Fetched via `GET {apiBaseUrl}api/Nodes/{id}/configuration`:
   PNG icon (see "View Colors & Icons" below), keyed off `classFullName`; any unregistered
   `classFullName` falls back to a vivid color cycled by position plus a generic dot glyph —
   deliberately avoiding near-black/near-gray colors so no icon/title reads as invisible against
-  the background. The subtitle uses the device configuration's `subHeader` deviceParameter if
-  present, otherwise a short built-in description per view type (e.g. "Buttons", "Slider") — only
-  the focused row shows its subtitle, to keep the scrolled-away rows compact.
+  the background. The subtitle uses the device configuration's `menuSubHeader` deviceParameter
+  if present, otherwise the view's simple class name with the trailing "View" stripped (e.g.
+  `SliderView` -> "Slider") — only the focused row shows its subtitle, to keep the scrolled-away
+  rows compact.
 
   While a View is focused, the encoder is forwarded to it only if it claims the encoder via
   `isInteracting()` (e.g. an "adjust value" submode); otherwise encoder rotation does nothing

@@ -87,22 +87,18 @@ const ViewStyle& styleForClassFullName(const String& classFullName, size_t fallb
     return kFallback[fallbackIndex % kFallbackCount];
 }
 
-// One-line fallback description per view type, used as the card's subtitle
-// when the device configuration doesn't supply its own `subHeader`
-// deviceParameter.
+// Fallback subtitle derived from the view's class name, used when the
+// device configuration doesn't supply its own `menuSubHeader`
+// deviceParameter: the simple class name (last `.`-separated segment) with
+// a trailing "View" stripped, e.g. "RIoT2.Ard.M5Dial.Node.SliderView" ->
+// "Slider".
 String defaultSubtitleForClassFullName(const String& classFullName) {
-    if (classFullName == "RIoT2.Ard.M5Dial.Node.ButtonView") return "Buttons";
-    if (classFullName == "RIoT2.Ard.M5Dial.Node.ColorSchemeView") return "Color picker";
-    if (classFullName == "RIoT2.Ard.M5Dial.Node.ValueView") return "Values";
-    if (classFullName == "RIoT2.Ard.M5Dial.Node.PercentageView") return "Percentage";
-    if (classFullName == "RIoT2.Ard.M5Dial.Node.ToggleView") return "Switch";
-    if (classFullName == "RIoT2.Ard.M5Dial.Node.SliderView") return "Slider";
-    if (classFullName == "RIoT2.Ard.M5Dial.Node.SceneSelectorView") return "Scenes";
-    if (classFullName == "RIoT2.Ard.M5Dial.Node.ClockView") return "Clock";
-    if (classFullName == "RIoT2.Ard.M5Dial.Node.AlertView") return "Alert";
-    if (classFullName == "RIoT2.Ard.M5Dial.Node.NotificationView") return "Notification";
-    if (classFullName == "RIoT2.Ard.M5Dial.Node.TimerView") return "Timer";
-    return "Tap to open";
+    int lastDot = classFullName.lastIndexOf('.');
+    String simpleName = lastDot >= 0 ? classFullName.substring(lastDot + 1) : classFullName;
+    if (simpleName.endsWith("View")) {
+        simpleName = simpleName.substring(0, simpleName.length() - 4);
+    }
+    return simpleName.length() > 0 ? simpleName : "Tap to open";
 }
 
 // Native pixel size (square) of the icon PNGs in Assets/icons/.
@@ -510,7 +506,7 @@ void ViewManager::renderCarousel(M5Canvas& canvas) {
                 subtitleY = titleBaseY + half + lineHeight / 2 + 10;
             }
 
-            String subtitle = findParameter(entry.config.deviceParameters, "subHeader", "");
+            String subtitle = findParameter(entry.config.deviceParameters, "menuSubHeader", "");
             if (subtitle.length() == 0) {
                 subtitle = defaultSubtitleForClassFullName(entry.config.classFullName);
             }
