@@ -1,6 +1,7 @@
 #include "ClockView.h"
 
 #include <memory>
+#include <stdlib.h>
 #include <time.h>
 
 #include "ViewColors.h"
@@ -15,7 +16,16 @@ const uint16_t kSubtleColor = ViewColors::toRGB565(ViewColors::ClockSecondary); 
 }  // namespace
 
 void ClockView::begin(const DeviceConfiguration& config) {
-    (void)config;
+    // A POSIX TZ string (e.g. "EET-2EEST,M3.5.0/3,M10.5.0/4") so localtime_r
+    // below reflects the configured timezone, DST included, instead of the
+    // UTC that main.cpp's configTime() call establishes by default. Left
+    // alone (no setenv/tzset call) when unset, preserving the previous
+    // UTC-only behavior.
+    String timezone = findParameter(config.deviceParameters, "timezone", "");
+    if (timezone.length() > 0) {
+        setenv("TZ", timezone.c_str(), 1);
+        tzset();
+    }
 }
 
 void ClockView::render(M5Canvas& canvas) {
