@@ -7,11 +7,9 @@
 #include "ViewFactory.h"
 
 namespace {
-const uint16_t kTrackColor = ViewColors::toRGB565(ViewColors::SliderSecondary);  // pale track
+const uint16_t kTrackColor = ViewColors::toRGB565(ViewColors::SliderSecondary);  // pale track, per CLAUDE.md
 const uint16_t kValueColor = ViewColors::toRGB565(ViewColors::Slider);  // this view's assigned color
 const uint16_t kAdjustColor = ViewColors::toRGB565(ViewColors::lighten(ViewColors::Slider, 0.5f));  // brighter, on-theme
-const uint16_t kTickColor = ViewColors::toRGB565(ViewColors::lighten(ViewColors::Slider, 0.4f));  // tick dots on track
-constexpr int kTickCount = 6;  // decorative tick marks spread across the track, like an Android volume slider
 }  // namespace
 
 void SliderView::begin(const DeviceConfiguration& config) {
@@ -89,21 +87,17 @@ void SliderView::render(M5Canvas& canvas) {
     canvas.setTextSize(2);
     canvas.drawString(_name, cx, cy - 50);
 
-    // Horizontal pill-shaped track (like an Android volume slider): pale
-    // background, decorative evenly-spaced tick dots, and a filled portion
-    // in the view's accent color with a thumb divider at the boundary.
+    // Horizontal pill-shaped track (like a classic volume slider): dark
+    // unfilled background, a filled portion in the view's accent color, and
+    // a round knob thumb - bigger than the track itself - marking the
+    // current value.
     int barWidth = canvas.width() - 80;
-    int barHeight = 28;
+    int barHeight = 20;
     int barX = cx - barWidth / 2;
     int barY = cy - barHeight / 2;
     int radius = barHeight / 2;
 
     canvas.fillRoundRect(barX, barY, barWidth, barHeight, radius, kTrackColor);
-
-    for (int i = 1; i <= kTickCount; i++) {
-        int tickX = barX + radius + (barWidth - 2 * radius) * i / (kTickCount + 1);
-        canvas.fillCircle(tickX, cy, 2, kTickColor);
-    }
 
     int filledWidth = static_cast<int>(barWidth * fraction + 0.5f);
     filledWidth = filledWidth < 0 ? 0 : (filledWidth > barWidth ? barWidth : filledWidth);
@@ -111,11 +105,15 @@ void SliderView::render(M5Canvas& canvas) {
         canvas.fillRoundRect(barX, barY, filledWidth, barHeight, radius, fillColor);
     }
 
-    // Thumb: a short vertical bar marking the boundary between filled and
-    // unfilled track.
+    // Round knob thumb at the value boundary, clamped so its center stays
+    // within the track's endpoints (it visually overhangs the pale/filled
+    // caps since its radius is larger than the track's half-height).
+    int thumbRadius = radius + 8;
     int thumbX = barX + filledWidth;
-    thumbX = thumbX < barX + 2 ? barX + 2 : (thumbX > barX + barWidth - 2 ? barX + barWidth - 2 : thumbX);
-    canvas.fillRoundRect(thumbX - 2, barY - 6, 4, barHeight + 12, 2, WHITE);
+    thumbX = thumbX < barX + thumbRadius ? barX + thumbRadius
+                                          : (thumbX > barX + barWidth - thumbRadius ? barX + barWidth - thumbRadius : thumbX);
+    canvas.fillCircle(thumbX, cy, thumbRadius, fillColor);
+    canvas.drawCircle(thumbX, cy, thumbRadius, kTrackColor);
 
     canvas.setTextSize(2);
     String valueText = String(displayValue) + (_unit.length() ? " " + _unit : "");
