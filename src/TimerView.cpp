@@ -34,7 +34,6 @@ void TimerView::begin(const DeviceConfiguration& config) {
 
     _phase = Phase::Setting;
     _totalSeconds = 0;
-    _lastReportedSeconds = -1;
 }
 
 void TimerView::onTouch(int x, int y) {
@@ -84,7 +83,6 @@ void TimerView::onCommand(const Command& command) {
 void TimerView::start() {
     _totalSeconds = _minutes * 60;
     _startMs = millis();
-    _lastReportedSeconds = -1;
     _phase = Phase::Running;
     Buzzer::confirm();
 }
@@ -114,10 +112,7 @@ void TimerView::render(M5Canvas& canvas) {
         if (remaining <= 0) {
             remaining = 0;
             finish();  // transitions to Phase::Done and publishes the "0" completion report
-        } else if (remaining != _lastReportedSeconds && _reportId.length() > 0) {
-            publishReport(Report{_reportId, String(remaining)});
         }
-        _lastReportedSeconds = remaining;
 
         int outerR = (cx < cy ? cx : cy) - 10;
         int innerR = outerR - 20;

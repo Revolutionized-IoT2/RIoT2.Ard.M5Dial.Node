@@ -13,9 +13,9 @@
 // "defaultMinutes" (default 5), "stepMinutes" (default 1), "maxMinutes"
 // (default 60) - the dial is clamped to [stepMinutes, maxMinutes].
 //
-// Publishes the remaining time (in whole seconds) as a Report whenever it
-// changes while running, and a final "0" report when it completes. Like
-// every view here, it only ticks/reports while focused (rendered); the
+// Publishes a single Report with the remaining time ("0") only once the
+// countdown completes - it does not report every second while running.
+// Like every view here, it only ticks while focused (rendered); the
 // remaining time is computed from wall-clock elapsed time, so backgrounding
 // and returning to it doesn't lose accuracy. An inbound Command addressed to
 // this view's commandTemplate presets the duration (in minutes) remotely,
@@ -41,7 +41,6 @@ private:
     Phase _phase = Phase::Setting;
     unsigned long _startMs = 0;
     int _totalSeconds = 0;
-    int _lastReportedSeconds = -1;
 
     void start();
     void cancel();
