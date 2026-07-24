@@ -495,15 +495,15 @@ void ViewManager::renderCarousel(M5Canvas& canvas) {
             canvas.setTextSize(titleSize);
 
             int titleBaseY = rowY - 13;
-            int subtitleY = rowY + 17;
+            int titleLineHeight = 8 * titleSize;
+            int lastTitleLineCenterY = titleBaseY;
             if (titleLines.size() == 1) {
                 canvas.drawString(titleLines[0], textX, titleBaseY);
             } else {
-                int lineHeight = 8 * titleSize;
-                int half = lineHeight / 2 + 2;
+                int half = titleLineHeight / 2 + 2;
                 canvas.drawString(titleLines[0], textX, titleBaseY - half);
                 canvas.drawString(titleLines[1], textX, titleBaseY + half);
-                subtitleY = titleBaseY + half + lineHeight / 2 + 10;
+                lastTitleLineCenterY = titleBaseY + half;
             }
 
             String subtitle = findParameter(entry.config.deviceParameters, "menuSubHeader", "");
@@ -511,6 +511,15 @@ void ViewManager::renderCarousel(M5Canvas& canvas) {
                 subtitle = defaultSubtitleForClassFullName(entry.config.classFullName);
             }
             if (subtitle.length() > 0) {
+                // Compute the subtitle's Y from the *actual* bottom edge of
+                // the last title line (which varies with titleSize and
+                // 1-vs-2 lines) plus a fixed gap, rather than a hardcoded
+                // offset from rowY - otherwise the visual gap shrinks/grows
+                // depending on the chosen title font size/line count.
+                constexpr int kTitleSubtitleGap = 6;
+                constexpr int kSubtitleLineHeight = 8;  // subtitle always drawn at text size 1
+                int subtitleY =
+                    lastTitleLineCenterY + titleLineHeight / 2 + kTitleSubtitleGap + kSubtitleLineHeight / 2;
                 uint16_t subtitleColor = canvas.color565(90, 90, 90);
                 drawFittedLeftText(canvas, subtitle, textX, subtitleY, maxWidthFocused, subtitleColor, 1);
             }
