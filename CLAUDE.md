@@ -157,17 +157,18 @@ Fetched via `GET {apiBaseUrl}api/Nodes/{id}/configuration`:
 
 ## UI / View Architecture
 
-- **Home carousel:** The top-level screen is a compact single-entry menu, styled after
-  round-display "smart button" devices (e.g. M5Dial community projects like
-  [smart-home-button](https://github.com/Jasionf/smart-home-button)): it shows ONE View at a
-  time as a small colored icon glyph next to a left-aligned title + subtitle, with dimmed
-  up/down chevrons hinting more entries above/below, a dimmed peek of the *next* entry's icon
-  below the current content, and a vertical page-position dot strip along the right edge
-  (current entry drawn as a diamond) — this scales to many Views far better than arranging
-  every icon around a fixed ring or a big centered card (both get crowded/overlapping or waste
-  space past a handful of entries). A View is entered ("focused", filling the whole screen)
+- **Home carousel:** The top-level screen is a vertically scrolling "belt"/coverflow list, styled
+  after M5Dial-UserDemo's `app_more_menu` (`apps/app_more_menu`): every View gets one row (icon +
+  name + view-type subtitle), stacked vertically and scrolled smoothly as the dial turns. The
+  focused row sits at screen center at full size/brightness; rows further away shrink, dim, and
+  bow rightward the further they are from center (`kArcAmplitude`/`kArcRange` in
+  [include/ViewManager.h](include/ViewManager.h)), fading toward the round panel's edge instead
+  of being hard-clipped — this scales to many Views far better than arranging every icon around a
+  fixed ring or a big centered card (both get crowded/overlapping or waste space past a handful
+  of entries), and there's no separate page-position indicator (e.g. a dot strip) any more since
+  the list itself communicates position. A View is entered ("focused", filling the whole screen)
   two ways:
-  - rotate the dial encoder to page through entries, then touch the content to enter the
+  - rotate the dial encoder to scroll to an entry, then touch the content to enter the
     current one; or
   - touch the content directly, which selects and enters it immediately (no separate confirm
     needed).
@@ -175,19 +176,20 @@ Fetched via `GET {apiBaseUrl}api/Nodes/{id}/configuration`:
   Touching the top band moves to the previous entry; touching the bottom band moves to the next
   entry — the display is split into three horizontal touch bands (top = previous, bottom = next,
   middle = enter) rather than precise per-element hit circles, since that's easier to hit
-  reliably on a small round touch panel (no up/down chevron graphics are drawn any more — the
-  bands themselves and the dimmed peek of the next entry are the only navigation hints). Each
-  View type has its own distinct color and hand-drawn vector icon glyph (e.g. ButtonView = blue
-  + finger/tap-ripple, ColorSchemeView = purple + palette dots, ToggleView = teal +
-  switch-with-knob), keyed off `classFullName`; any unregistered `classFullName` falls back to a
-  vivid color cycled by position plus a generic dot glyph — deliberately avoiding
-  near-black/near-gray colors so no icon/title reads as invisible against the background. The
-  subtitle uses the device configuration's `subHeader` deviceParameter if present, otherwise a
-  short built-in description per view type (e.g. "Buttons", "Slider").
+  reliably on a small round touch panel. Turning the dial eases the whole list's scroll position
+  toward the new active entry (`_scrollPosition` in [src/ViewManager.cpp](src/ViewManager.cpp)),
+  taking the shortest wraparound path so looping past the first/last entry animates smoothly
+  instead of sweeping across the whole list. Each View type has its own distinct color and real
+  PNG icon (see "View Colors & Icons" below), keyed off `classFullName`; any unregistered
+  `classFullName` falls back to a vivid color cycled by position plus a generic dot glyph —
+  deliberately avoiding near-black/near-gray colors so no icon/title reads as invisible against
+  the background. The subtitle uses the device configuration's `subHeader` deviceParameter if
+  present, otherwise a short built-in description per view type (e.g. "Buttons", "Slider") — only
+  the focused row shows its subtitle, to keep the scrolled-away rows compact.
 
   While a View is focused, the encoder is forwarded to it only if it claims the encoder via
   `isInteracting()` (e.g. an "adjust value" submode); otherwise encoder rotation does nothing
-  (it no longer pages through Views — that only happens on the carousel). Touch is forwarded
+  (it no longer scrolls the list — that only happens on the carousel). Touch is forwarded
   directly to the focused View, which decides what it means — Views never need the physical
   button. The physical button is reserved exclusively as the "return to the home carousel"
   gesture: pressing it while a View is focused always calls back to the carousel (a no-op while

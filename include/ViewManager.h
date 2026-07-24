@@ -76,26 +76,24 @@ private:
     static constexpr unsigned long kIdleTimeoutMs = 30000;
 
     // Carousel layout, all in display coordinates (M5Dial's round display is
-    // a fixed 240x240, center (120,120)). Chosen so every element stays
-    // within the round panel's visible circular area - see renderCarousel()
-    // in ViewManager.cpp for the math.
-    static constexpr int kIconCenterX = 78;   // small colored icon glyph, upper-left of the text
-    static constexpr int kIconCenterY = 100;
-    static constexpr int kIconRadius = 17;
-    static constexpr int kTextX = 48;  // left edge of the title/subtitle text block
-    static constexpr int kTitleY = 134;
-    static constexpr int kSubtitleY = 156;
-    static constexpr int kNextPeekCenterX = 78;  // dimmed peek of the *next* entry's icon
-    static constexpr int kNextPeekCenterY = 194;
-    static constexpr int kNextPeekRadius = 12;
-    static constexpr int kPrevPeekCenterX = 78;  // dimmed peek of the *previous* entry's icon
-    static constexpr int kPrevPeekCenterY = 32;
-    static constexpr int kPrevPeekRadius = 12;
-    static constexpr int kDotsX = 210;  // vertical page-position dot strip, right edge
-    static constexpr int kDotsCenterY = 128;
-    static constexpr int kDotRadius = 3;
-    static constexpr int kDotSpacing = 18;
-    static constexpr size_t kMaxVisibleDots = 5;
+    // a fixed 240x240, center (120,120)). Styled after the "belt"/coverflow
+    // list from M5Dial-UserDemo's app_more_menu: entries are laid out in a
+    // vertical scrolling list, one row per entry, smoothly scrolling as the
+    // encoder turns (see _scrollPosition). The focused row sits on
+    // kCenterY at full size/brightness; rows above/below shrink, dim, and
+    // bow rightward (kArcAmplitude) the further they are from center - see
+    // renderCarousel() in ViewManager.cpp for the math. There's no separate
+    // page-position indicator (e.g. dot strip) any more; the list itself
+    // communicates position.
+    static constexpr int kCenterY = 120;          // focused row's vertical center
+    static constexpr int kItemSpacingY = 54;      // vertical distance between adjacent rows
+    static constexpr int kIconColumnX = 34;       // icon center x for a row with no arc shift
+    static constexpr int kIconRadiusFocused = 19;
+    static constexpr int kIconRadiusMin = 10;
+    static constexpr int kArcAmplitude = 46;       // max rightward shift for the furthest visible rows
+    static constexpr int kArcRange = 130;          // pixel offset from center at which the arc shift maxes out
+    static constexpr int kMaxTextWidth = 150;
+    static constexpr float kScrollEase = 0.35f;    // 0..1 smoothing factor applied to _scrollPosition each frame
 
     // Touch is split into three horizontal bands rather than precise
     // per-element hit circles - easier to hit accurately on a small round
@@ -111,6 +109,13 @@ private:
     ClockView _idleView;
     unsigned long _lastInputMs = 0;
     bool _idle = false;
+
+    // Continuous (fractional) version of _activeIndex used purely for the
+    // carousel's scroll animation - eases toward _activeIndex every
+    // renderCarousel() call, taking the shortest wraparound path so looping
+    // past the first/last entry animates smoothly instead of sweeping
+    // across the whole list.
+    float _scrollPosition = 0.0f;
 
     IView* activeView() const;
     void moveHighlight(int direction);

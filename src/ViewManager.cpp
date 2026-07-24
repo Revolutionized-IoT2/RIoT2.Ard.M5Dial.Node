@@ -1,27 +1,20 @@
 #include "ViewManager.h"
 
+#include <cmath>
+
 #include "Icons.h"
 #include "ViewColors.h"
 #include "ViewFactory.h"
 
 constexpr unsigned long ViewManager::kIdleTimeoutMs;
-constexpr int ViewManager::kIconCenterX;
-constexpr int ViewManager::kIconCenterY;
-constexpr int ViewManager::kIconRadius;
-constexpr int ViewManager::kTextX;
-constexpr int ViewManager::kTitleY;
-constexpr int ViewManager::kSubtitleY;
-constexpr int ViewManager::kNextPeekCenterX;
-constexpr int ViewManager::kNextPeekCenterY;
-constexpr int ViewManager::kNextPeekRadius;
-constexpr int ViewManager::kPrevPeekCenterX;
-constexpr int ViewManager::kPrevPeekCenterY;
-constexpr int ViewManager::kPrevPeekRadius;
-constexpr int ViewManager::kDotsX;
-constexpr int ViewManager::kDotsCenterY;
-constexpr int ViewManager::kDotRadius;
-constexpr int ViewManager::kDotSpacing;
-constexpr size_t ViewManager::kMaxVisibleDots;
+constexpr int ViewManager::kCenterY;
+constexpr int ViewManager::kItemSpacingY;
+constexpr int ViewManager::kIconColumnX;
+constexpr int ViewManager::kIconRadiusFocused;
+constexpr int ViewManager::kIconRadiusMin;
+constexpr int ViewManager::kArcAmplitude;
+constexpr int ViewManager::kArcRange;
+constexpr int ViewManager::kMaxTextWidth;
 constexpr int ViewManager::kPrevBandBottomY;
 constexpr int ViewManager::kNextBandTopY;
 
@@ -178,13 +171,6 @@ void drawFittedLeftText(M5Canvas& canvas, const String& text, int x, int y, int 
     canvas.drawString(truncated + "..", x, y);
 }
 
-// Small filled diamond (rotated square) used to mark the current entry in
-// the vertical page-position dot strip, distinguishing it from the plain
-// round dots for the other entries.
-void drawDiamond(M5Canvas& canvas, int cx, int cy, int r, uint16_t color) {
-    canvas.fillTriangle(cx, cy - r, cx - r, cy, cx + r, cy, color);
-    canvas.fillTriangle(cx - r, cy, cx + r, cy, cx, cy + r, color);
-}
 }  // namespace
 
 void ViewManager::rebuild(const NodeConfiguration& nodeConfiguration) {
@@ -195,6 +181,7 @@ void ViewManager::rebuild(const NodeConfiguration& nodeConfiguration) {
     _entries.clear();
     _activeIndex = 0;
     _mode = Mode::Carousel;
+    _scrollPosition = 0.0f;
 
     for (const auto& deviceConfig : nodeConfiguration.deviceConfigurations) {
         auto view = ViewFactory::instance().create(deviceConfig.classFullName);
@@ -380,70 +367,72 @@ void ViewManager::renderCarousel(M5Canvas& canvas) {
         return;
     }
 
-    uint16_t dimGray = canvas.color565(90, 90, 90);
+    float countF = static_cast<float>(count);
 
-    // Current entry: icon glyph knocked out (in black) of a filled circle in
-    // the view's assigned color, beside a left-aligned title/subtitle block.
-    const auto& activeEntry = _entries[_activeIndex];
-    const ViewStyle& style = styleForClassFullName(activeEntry.config.classFullName, _activeIndex);
-    uint16_t styleColor = canvas.color565(style.r, style.g, style.b);
-
-    drawViewIcon(canvas, style, kIconCenterX, kIconCenterY, kIconRadius);
-
-    int maxTextWidth = kDotsX - kTextX - 14;
-    drawFittedLeftText(canvas, activeEntry.config.name, kTextX, kTitleY, maxTextWidth, styleColor);
-
-    String subtitle = findParameter(activeEntry.config.deviceParameters, "subHeader", "");
-    if (subtitle.length() == 0) {
-        subtitle = defaultSubtitleForClassFullName(activeEntry.config.classFullName);
-    }
-    if (subtitle.length() > 0) {
-        drawFittedLeftText(canvas, subtitle, kTextX, kSubtitleY, maxTextWidth, dimGray, 1);
+    // Ease _scrollPosition toward _activeIndex, taking the shortest
+    // wraparound path (e.g. going from the last entry to entry 0 animates
+    // forward by one step instead of sweeping backward across the whole
+    // list) - see the class comment on _scrollPosition.
+    float diff = static_cast<float>(_activeIndex) - _scrollPosition;
+    diff -= countF * roundf(diff / countF);
+    _scrollPosition += diff * kScrollEase;
+    _scrollPosition = fmodf(_scrollPosition, countF);
+    if (_scrollPosition < 0) {
+        _scrollPosition += countF;
     }
 
-    // Dimmed peek of the *next* entry's icon below the current content, a
-    // quieter hint than the previous design's full peek bubble.
-    if (count > 1) {
-        size_t nextIndex = (_activeIndex + 1) % count;
-        const ViewStyle& nextStyle = styleForClassFullName(_entries[nextIndex].config.classFullName, nextIndex);
-        drawViewIcon(canvas, nextStyle, kNextPeekCenterX, kNextPeekCenterY, kNextPeekRadius, 1.0f / 3.0f);
-    }
+    // Belt/coverflow-style vertical list (styled after M5Dial-UserDemo's
+    // app_more_menu): every entry gets a row that scrolls smoothly as the
+    // encoder turns. The focused row sits at kCenterY at full size and
+    // brightness; rows further away shrink, dim, and bow to the right
+    // (kArcAmplitude), fading toward the round panel's edge instead of
+    // being hard-clipped.
+    for (size_t i = 0; i < count; ++i) {
+        float raw = static_cast<float>(i) - _scrollPosition;
+        raw -= countF * roundf(raw / countF);
 
-    // Mirrors the next-entry peek above the current content, so turning the
-    // bezel counter-clockwise (toward the previous entry) has the same
-    // preview hint as turning it clockwise.
-    if (count > 1) {
-        size_t prevIndex = (_activeIndex + count - 1) % count;
-        const ViewStyle& prevStyle = styleForClassFullName(_entries[prevIndex].config.classFullName, prevIndex);
-        drawViewIcon(canvas, prevStyle, kPrevPeekCenterX, kPrevPeekCenterY, kPrevPeekRadius, 1.0f / 3.0f);
-    }
-
-    // Vertical page-position dot strip along the right edge: a sliding
-    // window centered on the current entry so this stays legible/scales to
-    // many views, instead of one dot per entry (which would overflow the
-    // strip's height once there are more than a handful of entries). The
-    // current entry is drawn as a diamond instead of a plain dot.
-    size_t visible = count < kMaxVisibleDots ? count : kMaxVisibleDots;
-    size_t windowStart = 0;
-    if (count > visible) {
-        size_t half = visible / 2;
-        if (_activeIndex > half) {
-            windowStart = _activeIndex - half;
+        int rowY = kCenterY + static_cast<int>(roundf(raw * kItemSpacingY));
+        if (rowY < -kIconRadiusFocused * 2 || rowY > canvas.height() + kIconRadiusFocused * 2) {
+            continue;  // fully outside the panel, nothing to draw
         }
-        if (windowStart + visible > count) {
-            windowStart = count - visible;
-        }
-    }
 
-    int totalHeight = static_cast<int>((visible - 1) * kDotSpacing);
-    int startY = kDotsCenterY - totalHeight / 2;
-    for (size_t i = 0; i < visible; ++i) {
-        size_t entryIndex = windowStart + i;
-        int dotY = startY + static_cast<int>(i) * kDotSpacing;
-        if (entryIndex == _activeIndex) {
-            drawDiamond(canvas, kDotsX, dotY, kDotRadius + 2, WHITE);
+        float t = (raw * kItemSpacingY) / static_cast<float>(kArcRange);
+        if (t > 1.0f) t = 1.0f;
+        if (t < -1.0f) t = -1.0f;
+        float absT = fabsf(t);
+
+        int arcShift = static_cast<int>(kArcAmplitude * (1.0f - cosf(absT * (PI / 2.0f))));
+        float brightness = 1.0f - 0.7f * absT;
+        if (brightness < 0.2f) brightness = 0.2f;
+        bool focused = absT < 0.12f;
+        int iconRadius = static_cast<int>(kIconRadiusFocused - (kIconRadiusFocused - kIconRadiusMin) * absT);
+
+        const Entry& entry = _entries[i];
+        const ViewStyle& style = styleForClassFullName(entry.config.classFullName, i);
+
+        int iconX = kIconColumnX + arcShift;
+        int textX = iconX + iconRadius + 12;
+        int maxTextWidth = kMaxTextWidth - arcShift;
+        if (maxTextWidth < 40) maxTextWidth = 40;
+
+        drawViewIcon(canvas, style, iconX, rowY, iconRadius, brightness);
+
+        uint8_t gray = static_cast<uint8_t>(255 * brightness);
+        uint16_t titleColor = canvas.color565(gray, gray, gray);
+
+        if (focused) {
+            drawFittedLeftText(canvas, entry.config.name, textX, rowY - 10, maxTextWidth, titleColor, 2);
+
+            String subtitle = findParameter(entry.config.deviceParameters, "subHeader", "");
+            if (subtitle.length() == 0) {
+                subtitle = defaultSubtitleForClassFullName(entry.config.classFullName);
+            }
+            if (subtitle.length() > 0) {
+                uint16_t subtitleColor = canvas.color565(90, 90, 90);
+                drawFittedLeftText(canvas, subtitle, textX, rowY + 14, maxTextWidth, subtitleColor, 1);
+            }
         } else {
-            canvas.fillCircle(kDotsX, dotY, kDotRadius, dimGray);
+            drawFittedLeftText(canvas, entry.config.name, textX, rowY, maxTextWidth, titleColor, 1);
         }
     }
 }
