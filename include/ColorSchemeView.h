@@ -6,7 +6,7 @@
 
 // Two-stage color picker:
 //  1. Tap the center swatch to start picking.
-//  2. Rotate the dial to step through 16 fixed main colors - the center
+//  2. Rotate the dial to step through 12 fixed main colors - the center
 //     swatch previews the chosen one live (as a pure color), and the outer
 //     rim continuously redraws to show that color's shades (a black ->
 //     color -> white sweep).
@@ -28,7 +28,7 @@ private:
     String _commandId;
     float _hue = 0.0f;        // selected main hue, degrees 0-359
     float _shadeT = 0.5f;     // selected shade position: 0=black, 0.5=pure hue, 1=white
-    float _pendingHue = 0.0f;  // live hue while picking (one of the 16 main colors)
-    int _pendingColorIndex = 0;  // index (0-15) of the pending main color
+    float _pendingHue = 0.0f;  // live hue while picking (one of the 12 main colors)
+    int _pendingColorIndex = 0;  // index (0-11) of the pending main color
     bool _picking = false;
 };

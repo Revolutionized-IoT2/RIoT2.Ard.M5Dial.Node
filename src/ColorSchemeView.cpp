@@ -3,6 +3,7 @@
 #include <math.h>
 
 #include <memory>
+#include <vector>
 
 #include "Buzzer.h"
 #include "ViewColors.h"
@@ -11,9 +12,10 @@
 namespace {
 
 constexpr int kDisplaySize = 240;
-constexpr int kMainColorCount = 16;  // bezel rotation cycles through this many main colors
+constexpr int kMainColorCount = 12;  // bezel rotation cycles through this many main colors
 constexpr float kMainColorStep = 360.0f / kMainColorCount;
-constexpr int kWheelSegments = 72;  // 5-degree wedges around the ring
+constexpr int kWheelSegments = 36;  // 10-degree wedges around the ring - still a smooth
+                                     // gradient, but half the fillArc() calls per frame
 constexpr int kRingWidth = 34;      // wider than a plain hue ring - easier to tap a shade
 
 const uint16_t kAccentColor = ViewColors::toRGB565(ViewColors::ColorScheme);            // this view's assigned color
@@ -35,8 +37,9 @@ Geometry computeGeometry(int width, int height) {
 }
 
 // Angle (degrees, 0 = top / 12 o'clock, increasing clockwise) of a point
-// relative to the wheel's center - matches the convention `fillArc()`
-// already uses elsewhere in this codebase (see PercentageView/TimerView).
+// relative to the wheel's center - this is our own bookkeeping convention,
+// used consistently for hit-testing and the shade marker. It intentionally
+// does NOT match `fillArc()`'s native angle - see `toLibraryAngle()` below.
 float angleFromCenterDeg(int x, int y, int cx, int cy) {
     float dx = static_cast<float>(x - cx);
     float dy = static_cast<float>(y - cy);
@@ -46,6 +49,12 @@ float angleFromCenterDeg(int x, int y, int cx, int cy) {
     }
     return angle;
 }
+
+// LovyanGFX's `fillArc()` measures its angle from East (3 o'clock), not
+// North - converts our own 0=North/clockwise angle (above) to the angle
+// `fillArc()` actually expects, so the rendered rim lines up with the
+// marker/hit-testing math instead of sitting a quarter-turn off.
+float toLibraryAngle(float degNorthClockwise) { return degNorthClockwise - 90.0f; }
 
 float normalizeHue(float hue) {
     hue = fmodf(hue, 360.0f);
@@ -159,6 +168,39 @@ void hexToHueAndShade(const String& hex, float& hue, float& shadeT) {
     }
 }
 
+// Greedily splits `text` into lines that each fit within `maxWidth` (at the
+// canvas's current text size), breaking on spaces, so a long label wraps
+// onto two or more centered rows instead of overflowing the swatch.
+std::vector<String> wrapText(M5Canvas& canvas, const String& text, int maxWidth) {
+    std::vector<String> lines;
+    int start = 0;
+    int len = static_cast<int>(text.length());
+    while (start < len) {
+        int lastGoodEnd = -1;
+        for (int i = start + 1; i <= len; ++i) {
+            if (i < len && text[i] != ' ') {
+                continue;
+            }
+            if (canvas.textWidth(text.substring(start, i)) <= maxWidth) {
+                lastGoodEnd = i;
+            } else {
+                break;
+            }
+        }
+        if (lastGoodEnd <= start) {
+            lastGoodEnd = len;  // a single word too long to wrap - keep it whole
+        }
+        String line = text.substring(start, lastGoodEnd);
+        line.trim();
+        lines.push_back(line);
+        start = lastGoodEnd;
+        while (start < len && text[start] == ' ') {
+            ++start;
+        }
+    }
+    return lines;
+}
+
 }  // namespace
 
 void ColorSchemeView::begin(const DeviceConfiguration& config) {
@@ -238,7 +280,8 @@ void ColorSchemeView::render(M5Canvas& canvas) {
         float t = (angle0 + step / 2.0f) / 360.0f;
         uint8_t r, g, b;
         shadeToRgb8(hue, t, r, g, b);
-        canvas.fillArc(geo.cx, geo.cy, geo.outerR, geo.innerR, angle0, angle1, canvas.color565(r, g, b));
+        canvas.fillArc(geo.cx, geo.cy, geo.outerR, geo.innerR, toLibraryAngle(angle0), toLibraryAngle(angle1),
+                       canvas.color565(r, g, b));
     }
 
     // Marker: shows the confirmed shade's position on the rim once idle.
@@ -260,7 +303,14 @@ void ColorSchemeView::render(M5Canvas& canvas) {
     canvas.setTextDatum(middle_center);
     canvas.setTextSize(1);
     canvas.setTextColor(_picking ? kPickingColor : kAccentColor, BLACK);
-    canvas.drawString(_picking ? "rotate hue, tap to pick shade" : shadeToHex(hue, shadeT), geo.cx, geo.cy);
+    String label = _picking ? "rotate hue, tap to pick shade" : shadeToHex(hue, shadeT);
+    int maxTextWidth = geo.swatchRadius * 2 - 16;
+    std::vector<String> lines = wrapText(canvas, label, maxTextWidth);
+    const int lineHeight = 11;
+    int startY = geo.cy - (static_cast<int>(lines.size()) - 1) * lineHeight / 2;
+    for (size_t i = 0; i < lines.size(); ++i) {
+        canvas.drawString(lines[i], geo.cx, startY + static_cast<int>(i) * lineHeight);
+    }
 }
 
 namespace {
