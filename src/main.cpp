@@ -109,6 +109,24 @@ bool rfidActive = false;
 // is no corresponding "turn back off" path, mirroring the RFID reader.
 bool bleActive = false;
 
+// Set by handleConfigurationMessage() when riot2/node/{id}/configuration
+// arrives, and consumed once from the top-level loop() rather than being
+// acted on immediately inside the MQTT callback. requestConfiguration()
+// performs a blocking HTTP GET (up to several seconds) - running it
+// synchronously inside PubSubClient's own callback dispatch (mqtt.loop() ->
+// _client.loop() -> this callback) was observed to starve the client's
+// keepalive/socket processing for that whole duration, causing the MQTT
+// connection itself to drop (and even the HTTP GET's own socket to
+// read-time-out: "GET failed, status=-11") right as the fetch completed.
+// That, in turn, triggered reconnect -> republish online -> orchestrator
+// resends configuration -> blocking fetch -> disconnect again: a
+// self-sustaining loop every couple of minutes that reset the whole
+// UI/carousel and looked like the node was rebooting. Deferring the actual
+// fetch to loop() (outside of _client.loop()'s call stack) avoids
+// re-entering/blocking PubSubClient's own processing.
+bool pendingConfigFetch = false;
+String pendingApiBaseUrl;
+
 void showStatus(const String& line1, const String& line2 = "") {
     M5Dial.Display.fillScreen(BLACK);
     M5Dial.Display.setTextColor(WHITE);
@@ -243,7 +261,12 @@ void handleConfigurationMessage(const String& topic, const String& payload) {
         return;
     }
 
-    orchestratorClient.requestConfiguration(apiBaseUrl, config.id);
+    // See the pendingConfigFetch comment above: don't call
+    // orchestratorClient.requestConfiguration() (blocking HTTP GET) from
+    // here directly - just record the request and let loop() perform it
+    // outside of PubSubClient's own callback dispatch.
+    pendingApiBaseUrl = apiBaseUrl;
+    pendingConfigFetch = true;
 }
 
 void handleConfigurationUpdated(const NodeConfiguration& nodeConfiguration) {
@@ -391,6 +414,14 @@ void loop() {
 
     wifi.loop();
     mqtt.loop();
+
+    // Runs the (blocking) configuration fetch requested by
+    // handleConfigurationMessage(), outside of mqtt.loop()'s own callback
+    // dispatch - see the pendingConfigFetch comment above.
+    if (pendingConfigFetch) {
+        pendingConfigFetch = false;
+        orchestratorClient.requestConfiguration(pendingApiBaseUrl, config.id);
+    }
 
     if (rfidActive) {
         pollRfid();
