@@ -14,10 +14,12 @@
 // returns to the carousel) - it never auto-dismisses on its own, since it's
 // meant for things that need a deliberate acknowledgement.
 //
-// The Command's `value` supplies what to show: a plain string is used
-// directly as the message, or an object with "title"/"message" fields for
-// both. Falls back to this view's "title"/"message" deviceParameters (or a
-// generic "Alert" title) when the value doesn't specify them.
+// The Command's `value` is expected to be an object with "title", "message",
+// and "subHeader" fields (e.g. { "title": "Doorbell", "message": "Someone is
+// at the front door", "subHeader": "tap to acknowledge" }); a plain string is
+// used directly as the message instead. Falls back to generic built-in
+// defaults ("Alert" title, empty message, "tap to acknowledge" subHeader)
+// when the value doesn't specify them.
 class AlertView : public IView {
 public:
     void begin(const DeviceConfiguration& config) override;
@@ -30,9 +32,8 @@ public:
     bool wantsExit() override { return _acknowledged; }
 
 private:
-    String _defaultTitle;
-    String _defaultMessage;
     String _title;
     String _message;
+    String _subHeader;
     bool _acknowledged = true;  // nothing to show until a command actually arrives
 };

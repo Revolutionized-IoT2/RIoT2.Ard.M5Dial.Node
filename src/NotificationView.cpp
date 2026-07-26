@@ -34,10 +34,9 @@ String extractMessage(const JsonVariantConst& value, const String& fallback) {
 }  // namespace
 
 void NotificationView::begin(const DeviceConfiguration& config) {
-    _defaultTitle = findParameter(config.deviceParameters, "title", "Notification");
-    _defaultMessage = findParameter(config.deviceParameters, "message", "");
-    _title = _defaultTitle;
-    _message = _defaultMessage;
+    _title = "Notification";
+    _message = "";
+    _subHeader = "";
 
     String durationParam = findParameter(config.deviceParameters, "durationMs", "");
     _durationMs = durationParam.length() > 0 ? static_cast<unsigned long>(durationParam.toInt()) : 4000;
@@ -61,8 +60,9 @@ void NotificationView::onTouch(int x, int y) {
 }
 
 void NotificationView::onCommand(const Command& command) {
-    _title = extractField(command.value, "title", _defaultTitle);
-    _message = extractMessage(command.value, _defaultMessage);
+    _title = extractField(command.value, "title", "Notification");
+    _message = extractMessage(command.value, "");
+    _subHeader = extractField(command.value, "subHeader", "");
 }
 
 bool NotificationView::wantsExit() {
@@ -93,6 +93,12 @@ void NotificationView::render(M5Canvas& canvas) {
         canvas.setTextColor(kSecondaryColor, kBackground);
         canvas.setTextSize(1);
         canvas.drawString(_message, cx, cy + 26);
+    }
+
+    if (_subHeader.length() > 0) {
+        canvas.setTextColor(kSecondaryColor, kBackground);
+        canvas.setTextSize(1);
+        canvas.drawString(_subHeader, cx, cy + 44);
     }
 
     // Thin progress bar showing time remaining before auto-dismiss.

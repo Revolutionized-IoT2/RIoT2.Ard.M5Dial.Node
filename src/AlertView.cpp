@@ -33,10 +33,10 @@ String extractMessage(const JsonVariantConst& value, const String& fallback) {
 }  // namespace
 
 void AlertView::begin(const DeviceConfiguration& config) {
-    _defaultTitle = findParameter(config.deviceParameters, "title", "Alert");
-    _defaultMessage = findParameter(config.deviceParameters, "message", "");
-    _title = _defaultTitle;
-    _message = _defaultMessage;
+    (void)config;
+    _title = "Alert";
+    _message = "";
+    _subHeader = "tap to acknowledge";
     _acknowledged = true;
 }
 
@@ -56,8 +56,9 @@ void AlertView::onTouch(int x, int y) {
 }
 
 void AlertView::onCommand(const Command& command) {
-    _title = extractField(command.value, "title", _defaultTitle);
-    _message = extractMessage(command.value, _defaultMessage);
+    _title = extractField(command.value, "title", "Alert");
+    _message = extractMessage(command.value, "");
+    _subHeader = extractField(command.value, "subHeader", "tap to acknowledge");
 }
 
 void AlertView::render(M5Canvas& canvas) {
@@ -86,7 +87,7 @@ void AlertView::render(M5Canvas& canvas) {
         canvas.drawString(_message, cx, cy + 26);
     }
 
-    canvas.drawString("tap to acknowledge", cx, canvas.height() - 22);
+    canvas.drawString(_subHeader, cx, canvas.height() - 22);
 }
 
 namespace {

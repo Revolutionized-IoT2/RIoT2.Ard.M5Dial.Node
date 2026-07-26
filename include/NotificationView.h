@@ -12,12 +12,13 @@
 // auto-dismisses back to the carousel after a short timeout on its own
 // (wantsExit()), though a tap dismisses it early too.
 //
-// The Command's `value` supplies what to show: a plain string is used
-// directly as the message, or an object with "title"/"message" fields for
-// both. Falls back to this view's "title"/"message" deviceParameters (or a
-// generic "Notification" title) when the value doesn't specify them. The
-// auto-dismiss timeout defaults to 4 seconds, overridable via this view's
-// "durationMs" deviceParameter.
+// The Command's `value` is expected to be an object with "title", "message",
+// and "subHeader" fields (e.g. { "title": "Doorbell", "message": "Someone is
+// at the front door", "subHeader": "tap to acknowledge" }); a plain string is
+// used directly as the message instead. Falls back to generic built-in
+// defaults ("Notification" title, empty message/subHeader) when the value
+// doesn't specify them. The auto-dismiss timeout defaults to 4 seconds,
+// overridable via this view's "durationMs" deviceParameter.
 class NotificationView : public IView {
 public:
     void begin(const DeviceConfiguration& config) override;
@@ -30,10 +31,9 @@ public:
     bool wantsExit() override;
 
 private:
-    String _defaultTitle;
-    String _defaultMessage;
     String _title;
     String _message;
+    String _subHeader;
     unsigned long _durationMs = 4000;
     unsigned long _shownAtMs = 0;
     bool _dismissed = true;  // nothing to show until a command actually arrives

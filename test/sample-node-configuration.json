@@ -106,7 +106,7 @@
         { "id": "doorbell-alert-cmd", "type": "1", "name": "Doorbell Alert", "address": "doorbell-1", "valueType": 1, "model": false }
       ],
       "reportTemplates": [],
-      "deviceParameters": { "title": "Doorbell", "message": "Someone is at the front door", "subHeader": "tap to acknowledge" }
+      "deviceParameters": {}
     },
     {
       "id": "view-notification",
@@ -116,7 +116,7 @@
         { "id": "status-notice-cmd", "type": "1", "name": "Status Notice", "address": "notice-1", "valueType": 1, "model": false }
       ],
       "reportTemplates": [],
-      "deviceParameters": { "title": "Notice", "message": "Washer cycle finished", "durationMs": "5000", "subHeader": "auto-dismisses" }
+      "deviceParameters": { "durationMs": "5000" }
     },
     {
       "id": "view-timer",
