@@ -4,6 +4,7 @@
 #include <WiFi.h>
 #include <time.h>
 
+#include "Manifest.h"
 #include "Topics.h"
 
 MqttConnection* MqttConnection::_instance = nullptr;
@@ -100,7 +101,21 @@ void MqttConnection::publishOnline() {
     doc["name"] = _config.name;
     doc["isOnline"] = true;
     doc["nodeType"] = 1;  // RIoT2.Core.Enums.NodeType.Device
-    char payload[128];
+
+    // Manifest::json is this build's manifest.json, embedded as a string
+    // constant at build time (see scripts/generate_manifest.py); parse it
+    // so it's nested as a real JSON object rather than a re-quoted string.
+    JsonDocument manifestDoc;
+    DeserializationError manifestErr = deserializeJson(manifestDoc, Manifest::json);
+    if (!manifestErr) {
+        doc["manifest"] = manifestDoc.as<JsonVariant>();
+    } else {
+        Serial.printf("[MQTT] Failed to parse embedded manifest: %s\n", manifestErr.c_str());
+    }
+
+    // Larger than the other fixed buffers here since this payload now
+    // includes the nested manifest object.
+    char payload[384];
     size_t len = serializeJson(doc, payload, sizeof(payload));
     _client.publish(Topics::online(_config.id).c_str(), reinterpret_cast<const uint8_t*>(payload), len, true);
 }

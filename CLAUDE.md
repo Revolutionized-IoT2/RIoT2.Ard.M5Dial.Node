@@ -73,8 +73,11 @@ provisioned onto the device):
    reported automatically by the broker without needing more app code.
 3. **Announce online** — On successful MQTT connect, publish (retained):
    - Topic: `riot2/node/{id}/online`
-   - Payload: `{ "name": "<node name>", "isOnline": true, "nodeType": 1 }`
-     (`nodeType: 1` = `Device`, matching `RIoT2.Core.Enums.NodeType`.)
+   - Payload: `{ "name": "<node name>", "isOnline": true, "nodeType": 1, "manifest": {...} }`
+     (`nodeType: 1` = `Device`, matching `RIoT2.Core.Enums.NodeType`. `manifest` is this build's
+     `manifest.json` — see [include/Manifest.h](include/Manifest.h)/[src/Manifest.cpp](src/Manifest.cpp),
+     generated at build time by [scripts/generate_manifest.py](scripts/generate_manifest.py) — embedded
+     as-is by `MqttConnection::publishOnline()`.)
 4. **Subscribe** to `riot2/orchestrator/online`, `riot2/node/{id}/configuration`, and
    `riot2/node/{id}/command`.
 5. **Orchestrator handshake** — The orchestrator announces itself with an **empty** message on
@@ -99,7 +102,7 @@ provisioned onto the device):
 
 | Direction | Topic | Payload |
 | --- | --- | --- |
-| Publish (retained) | `riot2/node/{id}/online` | `{ "name": string, "isOnline": bool, "nodeType": 1 }` |
+| Publish (retained) | `riot2/node/{id}/online` | `{ "name": string, "isOnline": bool, "nodeType": 1, "manifest": { "name": string, "version": string, "date": string, "installedPackageFilename": string } }` |
 | Publish (retained), on disconnect/shutdown | `riot2/node/{id}/online` | `{ "isOnline": false }` |
 | Subscribe | `riot2/orchestrator/online` | *(empty)* — triggers node to re-publish its online message |
 | Subscribe | `riot2/node/{id}/configuration` | `{ "apiBaseUrl": string }` — triggers the node to fetch its configuration |

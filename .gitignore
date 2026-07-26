@@ -2,3 +2,7 @@
 .pio
 .vscode
 .github/copilot-instructions.md
+
+# Auto-generated every build by scripts/generate_manifest.py
+include/Manifest.h
+src/Manifest.cpp
