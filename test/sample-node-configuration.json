@@ -146,11 +146,11 @@
       "classFullName": "RIoT2.Ard.M5Dial.Node.BLEView",
       "commandTemplates": [],
       "reportTemplates": [
-        { "id": "ble-device-found-report", "type": "1", "name": "BLE Device Found", "address": "deviceFound", "parameters": {} },
-        { "id": "ble-device-lost-report", "type": "1", "name": "BLE Device Lost", "address": "deviceLost", "parameters": {} },
-        { "id": "ble-advertisement-report", "type": "1", "name": "BLE Advertisement", "address": "advertisement", "parameters": {} }
+        { "id": "ble-device-found-report", "type": "1", "name": "BLE Device Found", "address": "deviceFound", "parameters": { "allowedAddresses": "" } },
+        { "id": "ble-device-lost-report", "type": "1", "name": "BLE Device Lost", "address": "deviceLost", "parameters": { "allowedAddresses": "" } },
+        { "id": "ble-advertisement-report", "type": "1", "name": "BLE Advertisement", "address": "advertisement", "parameters": { "allowedAddresses": "" } }
       ],
-      "deviceParameters": { "header": "Nearby BLE", "allowedAddresses": "" }
+      "deviceParameters": { "header": "Nearby BLE" }
     }
   ]
 }

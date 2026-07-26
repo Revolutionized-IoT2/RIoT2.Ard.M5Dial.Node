@@ -16,13 +16,17 @@ const uint16_t kSecondaryColor = ViewColors::toRGB565(ViewColors::BLESecondary);
 // to the given positional index so a minimal configuration that just lists
 // up to three reportTemplates in order (without bothering to set `address`)
 // still works, mirroring ButtonView/ValueView's address-matching convention.
-String resolveReportId(const std::vector<ReportTemplate>& templates, const String& address, size_t fallbackIndex) {
+// Returns a pointer into `templates` (not a copy) so callers can also read
+// that specific reportTemplate's own `parameters` (e.g. its `allowedAddresses`
+// filter); nullptr if no match/fallback exists.
+const ReportTemplate* resolveReportTemplate(const std::vector<ReportTemplate>& templates, const String& address,
+                                             size_t fallbackIndex) {
     for (const auto& tmpl : templates) {
         if (tmpl.address == address) {
-            return tmpl.id;
+            return &tmpl;
         }
     }
-    return fallbackIndex < templates.size() ? templates[fallbackIndex].id : String();
+    return fallbackIndex < templates.size() ? &templates[fallbackIndex] : nullptr;
 }
 
 // Builds the JSON report value for a discovered/updated device. Uses
@@ -76,22 +80,40 @@ std::vector<String> splitAddressList(const String& raw) {
 
 void BLEView::begin(const DeviceConfiguration& config) {
     _header = findParameter(config.deviceParameters, "header", "Nearby BLE");
-    _deviceFoundReportId = resolveReportId(config.reportTemplates, "deviceFound", 0);
-    _deviceLostReportId = resolveReportId(config.reportTemplates, "deviceLost", 1);
-    _advertisementReportId = resolveReportId(config.reportTemplates, "advertisement", 2);
-    _allowedAddresses = splitAddressList(findParameter(config.deviceParameters, "allowedAddresses", ""));
+
+    const ReportTemplate* deviceFoundTmpl = resolveReportTemplate(config.reportTemplates, "deviceFound", 0);
+    const ReportTemplate* deviceLostTmpl = resolveReportTemplate(config.reportTemplates, "deviceLost", 1);
+    const ReportTemplate* advertisementTmpl = resolveReportTemplate(config.reportTemplates, "advertisement", 2);
+
+    _deviceFoundReportId = deviceFoundTmpl ? deviceFoundTmpl->id : String();
+    _deviceLostReportId = deviceLostTmpl ? deviceLostTmpl->id : String();
+    _advertisementReportId = advertisementTmpl ? advertisementTmpl->id : String();
+
+    // Each report has its own independent `allowedAddresses` filter, read
+    // from that specific reportTemplate's `parameters` (not deviceParameters).
+    _deviceFoundAllowedAddresses =
+        deviceFoundTmpl ? splitAddressList(findParameter(deviceFoundTmpl->parameters, "allowedAddresses", ""))
+                        : std::vector<String>();
+    _deviceLostAllowedAddresses =
+        deviceLostTmpl ? splitAddressList(findParameter(deviceLostTmpl->parameters, "allowedAddresses", ""))
+                       : std::vector<String>();
+    _advertisementAllowedAddresses =
+        advertisementTmpl ? splitAddressList(findParameter(advertisementTmpl->parameters, "allowedAddresses", ""))
+                          : std::vector<String>();
+
     _devices.clear();
     _scrollOffset = 0;
 }
 
-// Reports are restricted to `_allowedAddresses` when it's non-empty; an
-// empty list (parameter absent/blank) means "no filtering", matching the
-// pre-existing behavior of reporting every discovered device/advertisement.
-bool BLEView::isAddressAllowed(const String& address) const {
-    if (_allowedAddresses.empty()) {
+// A report's filter is restricted to `allowedAddresses` when it's non-empty;
+// an empty list (parameter absent/blank on that reportTemplate) means "no
+// filtering", matching the pre-existing behavior of reporting every
+// discovered device/advertisement.
+bool BLEView::isAddressAllowed(const std::vector<String>& allowedAddresses, const String& address) {
+    if (allowedAddresses.empty()) {
         return true;
     }
-    for (const auto& allowed : _allowedAddresses) {
+    for (const auto& allowed : allowedAddresses) {
         if (allowed.equalsIgnoreCase(address)) {
             return true;
         }
@@ -126,7 +148,7 @@ bool BLEView::isInteracting() const {
 
 void BLEView::onBleDeviceDiscovered(const BleDeviceInfo& device) {
     _devices.push_back(device);
-    if (_deviceFoundReportId.length() > 0 && isAddressAllowed(device.address)) {
+    if (_deviceFoundReportId.length() > 0 && isAddressAllowed(_deviceFoundAllowedAddresses, device.address)) {
         publishReport(Report{_deviceFoundReportId, deviceJson(device.address, device.name, device.rssi)});
     }
 }
@@ -140,7 +162,7 @@ void BLEView::onBleDeviceLost(const String& address) {
     }
     clampScrollOffset();
 
-    if (_deviceLostReportId.length() > 0 && isAddressAllowed(address)) {
+    if (_deviceLostReportId.length() > 0 && isAddressAllowed(_deviceLostAllowedAddresses, address)) {
         // `address` is always a colon-separated hex MAC (from BLEAddress::toString()),
         // so it's safe to embed directly as a quoted JSON string literal.
         publishReport(Report{_deviceLostReportId, String("\"") + address + "\""});
@@ -148,7 +170,8 @@ void BLEView::onBleDeviceLost(const String& address) {
 }
 
 void BLEView::onBleAdvertisement(const BleAdvertisement& advertisement) {
-    if (_advertisementReportId.length() > 0 && isAddressAllowed(advertisement.address)) {
+    if (_advertisementReportId.length() > 0 &&
+        isAddressAllowed(_advertisementAllowedAddresses, advertisement.address)) {
         publishReport(Report{_advertisementReportId, advertisementJson(advertisement)});
     }
 }

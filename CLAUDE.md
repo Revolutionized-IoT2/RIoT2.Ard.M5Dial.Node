@@ -277,11 +277,13 @@ and media-remote widgets):
   device no longer present, and every raw advertisement received (forwarded as-is). Report
   payloads embedding the advertised device `name` (untrusted RF input) are built with
   `ArduinoJson`'s serializer rather than manual string concatenation, so they're always valid,
-  properly-escaped JSON. An optional `allowedAddresses` deviceParameter (comma-separated BLE MAC
-  addresses, matched case-insensitively) restricts which devices generate these three reports;
-  devices outside the list are still discovered/tracked and shown on screen, they just don't
-  publish reports. If `allowedAddresses` is absent or blank, no filtering is applied and every
-  discovered device/advertisement is reported, matching the original behavior.
+  properly-escaped JSON. Each of the three reportTemplates (`deviceFound`/`deviceLost`/
+  `advertisement`) supports its own independent `allowedAddresses` parameter (in that
+  reportTemplate's own `parameters`, not `deviceParameters`) - a comma-separated list of BLE MAC
+  addresses (matched case-insensitively) restricting which devices generate *that* report.
+  Devices outside the list are still discovered/tracked and shown on screen, they just don't
+  trigger that particular report. If a reportTemplate has no `allowedAddresses` parameter (or
+  it's blank), no filtering is applied for that report, matching the original behavior.
 - **ClockView** — idle/screensaver view (time + maybe next event) shown after inactivity timeout
   or as `deviceConfigurations[0]`. Views doing ongoing background work while focused (e.g.
   `TimerView` actively counting down) can override `IView::keepsAwake()` to suppress this timeout,
