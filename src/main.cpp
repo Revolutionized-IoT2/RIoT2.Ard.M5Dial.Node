@@ -12,6 +12,7 @@
 #include "NodeConfig.h"
 #include "OrchestratorClient.h"
 #include "OtaUpdater.h"
+#include "PeripheralManager.h"
 #include "ProvisioningPortal.h"
 #include "Report.h"
 #include "ViewManager.h"
@@ -49,6 +50,9 @@ MqttConnection mqtt;
 ProvisioningPortal provisioning;
 OrchestratorClient orchestratorClient;
 ViewManager viewManager;
+// Grove-port peripherals (PORT.A / PORT.B) - configured the same way as
+// Views but never shown in the carousel, see PeripheralManager.h.
+PeripheralManager peripheralManager;
 M5Canvas canvas(&M5Dial.Display);
 
 WifiState lastWifiState = WifiState::Disconnected;
@@ -250,6 +254,10 @@ void handleCommand(const String& topic, const String& payload) {
         // left on a dimmed/sleeping screen.
         wakeDisplay();
     }
+    // commandTemplate ids are unique per configuration entry, so trying
+    // both routers is safe - exactly one of them will ever actually own a
+    // given commandId. Peripherals have no display/UI to wake.
+    peripheralManager.onCommand(command.id, command);
 }
 
 void handleReport(const Report& report) {
@@ -296,6 +304,7 @@ void handleConfigurationUpdated(const NodeConfiguration& nodeConfiguration) {
                       static_cast<unsigned>(device.reportTemplates.size()));
     }
     viewManager.rebuild(nodeConfiguration);
+    peripheralManager.rebuild(nodeConfiguration);
 
     // Only power up the on-device RFID reader if this configuration actually
     // has a view that wants tag reads (e.g. RFIDView) - it stays off
@@ -416,6 +425,7 @@ void setup() {
     configTime(0, 0, "pool.ntp.org", "time.nist.gov");
 
     viewManager.onReport(handleReport);
+    peripheralManager.onReport(handleReport);
     orchestratorClient.onConfigurationUpdated(handleConfigurationUpdated);
 
     BleScanner::instance().onDeviceDiscovered(
@@ -456,6 +466,8 @@ void loop() {
     if (bleActive) {
         BleScanner::instance().loop();
     }
+
+    peripheralManager.loop();
 
     bool statusChanged = wifi.state() != lastWifiState || mqtt.state() != lastMqttState;
     if (statusChanged) {

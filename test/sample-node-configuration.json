@@ -157,5 +157,24 @@
         ],
       "deviceParameters": { "header": "Nearby BLE" }
     }
+  ],
+  "peripheralConfigurations": [
+    {
+      "id": "grove-doorbell-button",
+      "name": "Doorbell Button",
+      "classFullName": "RIoT2.Ard.M5Dial.Node.GpioPeripheral",
+      "reportTemplates": [
+        { "id": "doorbell-button-report", "type": 0, "name": "Doorbell Button", "address": "B1", "parameters": {} }
+      ],
+      "deviceParameters": { "pullup": "true", "invert": "true" }
+    },
+    {
+      "id": "grove-porch-relay-output",
+      "name": "Porch Relay (Grove)",
+      "classFullName": "RIoT2.Ard.M5Dial.Node.GpioPeripheral",
+      "commandTemplates": [
+        { "id": "porch-relay-grove-cmd", "type": 0, "name": "Porch Relay", "address": "B2", "model": false }
+      ]
+    }
   ]
 }

@@ -51,4 +51,11 @@ struct NodeConfiguration {
     String name;
     String id;
     std::vector<DeviceConfiguration> deviceConfigurations;
+
+    // Grove-port peripherals (see IPeripheral/PeripheralManager) - parsed
+    // from the same JSON document as deviceConfigurations and configured
+    // identically (id/classFullName/commandTemplates/reportTemplates/
+    // deviceParameters), but resolved via PeripheralFactory instead of
+    // ViewFactory and never shown in the carousel.
+    std::vector<DeviceConfiguration> peripheralConfigurations;
 };
