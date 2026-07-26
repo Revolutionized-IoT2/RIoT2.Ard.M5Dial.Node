@@ -60,7 +60,7 @@ void AlertView::begin(const DeviceConfiguration& config) {
 void AlertView::onEnter() {
     _acknowledged = false;
     if (_soundEnabled) {
-        Buzzer::error();
+        Buzzer::alert();
     }
 }
 
