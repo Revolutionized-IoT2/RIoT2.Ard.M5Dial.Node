@@ -20,6 +20,10 @@
 // used directly as the message instead. Falls back to generic built-in
 // defaults ("Alert" title, empty message, "tap to acknowledge" subHeader)
 // when the value doesn't specify them.
+//
+// The command's own "soundEnabled" parameter (default "false") controls
+// whether an alert sound (Buzzer::error()) plays when that particular command
+// takes over the display - set per commandTemplate, not per view.
 class AlertView : public IView {
 public:
     void begin(const DeviceConfiguration& config) override;
@@ -36,4 +40,5 @@ private:
     String _message;
     String _subHeader;
     bool _acknowledged = true;  // nothing to show until a command actually arrives
+    bool _soundEnabled = false;
 };

@@ -44,13 +44,16 @@ void NotificationView::begin(const DeviceConfiguration& config) {
         _durationMs = 4000;
     }
 
+    _soundEnabled = false;
     _dismissed = true;
 }
 
 void NotificationView::onEnter() {
     _dismissed = false;
     _shownAtMs = millis();
-    Buzzer::confirm();
+    if (_soundEnabled) {
+        Buzzer::confirm();
+    }
 }
 
 void NotificationView::onTouch(int x, int y) {
@@ -63,6 +66,7 @@ void NotificationView::onCommand(const Command& command) {
     _title = extractField(command.value, "title", "Notification");
     _message = extractMessage(command.value, "");
     _subHeader = extractField(command.value, "subHeader", "");
+    _soundEnabled = findParameter(command.parameters, "soundEnabled", "false").equalsIgnoreCase("true");
 }
 
 bool NotificationView::wantsExit() {

@@ -38,11 +38,14 @@ void AlertView::begin(const DeviceConfiguration& config) {
     _message = "";
     _subHeader = "tap to acknowledge";
     _acknowledged = true;
+    _soundEnabled = false;
 }
 
 void AlertView::onEnter() {
     _acknowledged = false;
-    Buzzer::error();
+    if (_soundEnabled) {
+        Buzzer::error();
+    }
 }
 
 void AlertView::onTouch(int x, int y) {
@@ -59,6 +62,7 @@ void AlertView::onCommand(const Command& command) {
     _title = extractField(command.value, "title", "Alert");
     _message = extractMessage(command.value, "");
     _subHeader = extractField(command.value, "subHeader", "tap to acknowledge");
+    _soundEnabled = findParameter(command.parameters, "soundEnabled", "false").equalsIgnoreCase("true");
 }
 
 void AlertView::render(M5Canvas& canvas) {

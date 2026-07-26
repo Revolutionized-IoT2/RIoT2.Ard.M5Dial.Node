@@ -95,7 +95,7 @@
       "name": "Doorbell Alert",
       "classFullName": "RIoT2.Ard.M5Dial.Node.AlertView",
       "commandTemplates": [
-        { "id": "doorbell-alert-cmd", "type": 1, "name": "Doorbell Alert", "address": "doorbell-1", "model": { "title": "Doorbell", "message": "Someone is at the front door", "subHeader": "tap to acknowledge" } }
+        { "id": "doorbell-alert-cmd", "type": 1, "name": "Doorbell Alert", "address": "doorbell-1", "model": { "title": "Doorbell", "message": "Someone is at the front door", "subHeader": "tap to acknowledge" }, "parameters": { "soundEnabled": "true" } }
       ]
     },
     {
@@ -103,7 +103,7 @@
       "name": "Status Notice",
       "classFullName": "RIoT2.Ard.M5Dial.Node.NotificationView",
       "commandTemplates": [
-        { "id": "status-notice-cmd", "type": 1, "name": "Status Notice", "address": "notice-1", "valueType": 3, "model": { "title": "Washing machine", "message": "Cycle complete", "subHeader": "read on-device, auto-dismisses" } }
+        { "id": "status-notice-cmd", "type": 1, "name": "Status Notice", "address": "notice-1", "valueType": 3, "model": { "title": "Washing machine", "message": "Cycle complete", "subHeader": "read on-device, auto-dismisses" }, "parameters": { "soundEnabled": "true" } }
       ],
       "deviceParameters": { "durationMs": "5000" }
     },

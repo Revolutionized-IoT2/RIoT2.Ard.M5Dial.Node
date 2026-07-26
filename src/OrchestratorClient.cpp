@@ -92,6 +92,9 @@ bool OrchestratorClient::parseConfiguration(const String& json, NodeConfiguratio
             cmd.address = cmdJson["address"] | "";
             cmd.valueType = cmdJson["valueType"] | 0;
             cmd.model = cmdJson["model"] | false;
+            for (JsonPair kv : cmdJson["parameters"].as<JsonObject>()) {
+                cmd.parameters.push_back({String(kv.key().c_str()), kv.value().as<String>()});
+            }
             device.commandTemplates.push_back(cmd);
         }
 

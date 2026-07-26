@@ -19,6 +19,10 @@
 // defaults ("Notification" title, empty message/subHeader) when the value
 // doesn't specify them. The auto-dismiss timeout defaults to 4 seconds,
 // overridable via this view's "durationMs" deviceParameter.
+//
+// The command's own "soundEnabled" parameter (default "false") controls
+// whether a notification ping (Buzzer::confirm()) plays when that particular
+// command takes over the display - set per commandTemplate, not per view.
 class NotificationView : public IView {
 public:
     void begin(const DeviceConfiguration& config) override;
@@ -37,4 +41,5 @@ private:
     unsigned long _durationMs = 4000;
     unsigned long _shownAtMs = 0;
     bool _dismissed = true;  // nothing to show until a command actually arrives
+    bool _soundEnabled = false;
 };
