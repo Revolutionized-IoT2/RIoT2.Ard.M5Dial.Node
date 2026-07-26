@@ -10,36 +10,12 @@ namespace {
 const uint16_t kRFIDColor = ViewColors::toRGB565(ViewColors::RFID);            // this view's assigned color
 const uint16_t kSecondaryColor = ViewColors::toRGB565(ViewColors::RFIDSecondary);  // pale accent for secondary text
 constexpr uint16_t kBackground = 0x1082;                                       // near-black blue-grey
-
-// Pulls the scanned tag's value out of a Command's loosely-typed value: a
-// plain string/number is used directly, an object looks for a "value" key
-// (falling back to "tag"/"uid"), anything else (or a missing key) falls
-// back to the supplied default.
-String extractTagValue(const JsonVariantConst& value, const String& fallback) {
-    if (value.is<JsonObjectConst>()) {
-        JsonObjectConst obj = value.as<JsonObjectConst>();
-        if (obj["value"].is<const char*>() || obj["value"].is<int>() || obj["value"].is<float>()) {
-            return obj["value"].as<String>();
-        }
-        if (obj["tag"].is<const char*>()) {
-            return obj["tag"].as<String>();
-        }
-        if (obj["uid"].is<const char*>()) {
-            return obj["uid"].as<String>();
-        }
-        return fallback;
-    }
-    if (value.is<const char*>() || value.is<int>() || value.is<float>()) {
-        return value.as<String>();
-    }
-    return fallback;
-}
 }  // namespace
 
 void RFIDView::begin(const DeviceConfiguration& config) {
     _title = findParameter(config.deviceParameters, "title", "RFID Tag");
-    _placeholder = findParameter(config.deviceParameters, "placeholder", "");
-    _tagValue = _placeholder;
+    _reportId = config.reportTemplates.empty() ? "" : config.reportTemplates[0].id;
+    _tagValue = "";
 
     String durationParam = findParameter(config.deviceParameters, "durationMs", "");
     _durationMs = durationParam.length() > 0 ? static_cast<unsigned long>(durationParam.toInt()) : 4000;
@@ -62,13 +38,17 @@ void RFIDView::onTouch(int x, int y) {
     _dismissed = true;  // tapping dismisses it early
 }
 
-void RFIDView::onCommand(const Command& command) {
-    _tagValue = extractTagValue(command.value, _placeholder);
+void RFIDView::onRfidTagRead(const String& value) {
+    _tagValue = value;
+    if (_reportId.length() > 0) {
+        publishReport(Report{_reportId, String("\"") + value + "\""});
+    }
 }
 
 bool RFIDView::wantsExit() {
     return _dismissed || (millis() - _shownAtMs) >= _durationMs;
 }
+
 
 void RFIDView::render(M5Canvas& canvas) {
     canvas.fillScreen(kBackground);

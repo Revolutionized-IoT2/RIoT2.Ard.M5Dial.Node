@@ -419,6 +419,26 @@ void ViewManager::onCommand(const String& commandId, const Command& command) {
     Serial.printf("[ViewManager] No view owns commandTemplate id=%s\n", commandId.c_str());
 }
 
+void ViewManager::notifyRfidTagRead(const String& value) {
+    for (size_t i = 0; i < _entries.size(); ++i) {
+        Entry& entry = _entries[i];
+        if (!entry.view->consumesRfidEvents()) {
+            continue;
+        }
+
+        entry.view->onRfidTagRead(value);
+
+        // Same immediate-takeover behavior as isAlert() views reacting to a
+        // command (see onCommand()) - a tag read shouldn't wait for the user
+        // to dial/tap their way to the view.
+        if (!(_mode == Mode::Focused && _activeIndex == i)) {
+            enterFocused(i);
+            _idle = false;
+            _lastInputMs = millis();
+        }
+    }
+}
+
 void ViewManager::renderCarousel(M5Canvas& canvas) {
     canvas.fillScreen(BLACK);
 

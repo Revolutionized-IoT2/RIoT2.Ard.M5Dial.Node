@@ -66,6 +66,12 @@ public:
     // matching commandId (regardless of which view is currently focused).
     void onCommand(const String& commandId, const Command& command);
 
+    // Routes a tag read from the node's on-device RFID reader to every
+    // entry with IView::consumesRfidEvents() (regardless of which view is
+    // currently focused), taking over the display for it just like an
+    // isAlert() view does for an inbound command (see onCommand()).
+    void notifyRfidTagRead(const String& value);
+
     void render(M5Canvas& canvas);
 
 private:

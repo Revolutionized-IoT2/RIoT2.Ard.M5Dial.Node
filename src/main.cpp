@@ -71,6 +71,14 @@ bool dimmed = false;
 bool asleep = false;
 unsigned long lastActivityMs = 0;
 
+// Debounces the node's on-device RFID reader (M5Dial.Rfid, a built-in
+// MFRC522 - see M5Dial.begin()'s enableRFID flag): ignores repeat reads of
+// the same tag within this window so leaving a card resting on/near the
+// reader doesn't keep re-triggering RFIDView every loop().
+constexpr unsigned long kRfidRepeatSuppressMs = 3000;
+String lastRfidUid;
+unsigned long lastRfidReadMs = 0;
+
 void showStatus(const String& line1, const String& line2 = "") {
     M5Dial.Display.fillScreen(BLACK);
     M5Dial.Display.setTextColor(WHITE);
@@ -228,13 +236,45 @@ void factoryReset() {
     ESP.restart();
 }
 
+// Polls the node's on-device RFID reader; when a new tag is read (and it
+// isn't a debounced repeat of the same tag - see kRfidRepeatSuppressMs),
+// forwards its UID to ViewManager::notifyRfidTagRead(), which routes it to
+// RFIDView (IView::consumesRfidEvents()) regardless of what's currently
+// focused/shown, exactly like an inbound command does for AlertView /
+// NotificationView.
+void pollRfid() {
+    if (!M5Dial.Rfid.PICC_IsNewCardPresent() || !M5Dial.Rfid.PICC_ReadCardSerial()) {
+        return;
+    }
+
+    String uid;
+    for (byte i = 0; i < M5Dial.Rfid.uid.size; i++) {
+        if (M5Dial.Rfid.uid.uidByte[i] < 0x10) {
+            uid += "0";
+        }
+        uid += String(M5Dial.Rfid.uid.uidByte[i], HEX);
+    }
+    uid.toUpperCase();
+    M5Dial.Rfid.PICC_HaltA();
+
+    unsigned long now = millis();
+    if (uid == lastRfidUid && (now - lastRfidReadMs) < kRfidRepeatSuppressMs) {
+        return;
+    }
+    lastRfidUid = uid;
+    lastRfidReadMs = now;
+
+    Serial.printf("[RFID] Tag read: %s\n", uid.c_str());
+    viewManager.notifyRfidTagRead(uid);
+}
+
 }  // namespace
 
 void setup() {
     Serial.begin(115200);
 
     auto cfg = M5.config();
-    M5Dial.begin(cfg, true, false);
+    M5Dial.begin(cfg, true, true);
 
     config = NodeConfigStore::load();
 
@@ -280,6 +320,10 @@ void loop() {
 
     wifi.loop();
     mqtt.loop();
+
+    if (viewManager.hasViews()) {
+        pollRfid();
+    }
 
     bool statusChanged = wifi.state() != lastWifiState || mqtt.state() != lastMqttState;
     if (statusChanged) {

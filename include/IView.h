@@ -56,6 +56,18 @@ public:
     // them) return true here. See ViewManager::onCommand().
     virtual bool isAlert() const { return false; }
 
+    // RFIDView-style views that read tags directly from the node's on-device
+    // RFID reader (rather than being driven by an inbound Command) return
+    // true here so ViewManager::notifyRfidTagRead() knows to route hardware
+    // tag reads to them and, like isAlert(), take over the display as soon
+    // as a tag is read.
+    virtual bool consumesRfidEvents() const { return false; }
+
+    // Called by ViewManager::notifyRfidTagRead() when the node's on-device
+    // RFID reader reads a new tag, for views where consumesRfidEvents() is
+    // true. `value` is the tag's UID (hex string).
+    virtual void onRfidTagRead(const String& value) { (void)value; }
+
     // Polled by the ViewManager once per frame while this view is focused;
     // returning true asks the ViewManager to return to the home carousel
     // (e.g. after a transient alert/notification has been acknowledged or

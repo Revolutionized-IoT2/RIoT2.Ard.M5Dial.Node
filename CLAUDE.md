@@ -252,10 +252,12 @@ and media-remote widgets):
   they're excluded from the home carousel entirely (`ViewManager` filters out any view whose
   `isAlert()` returns `true` when building the navigable menu) and are only ever shown when their
   inbound `Command` arrives, interrupting whatever's currently on screen; auto-dismisses or
-  requires a tap to acknowledge. `RFIDView` specifically is activated by an inbound `Command`
-  carrying the value read from a scanned RFID tag (e.g. published by an external reader device);
-  it displays the read value, confirms with a beep (`Buzzer::confirm()`) on entry, and
-  auto-dismisses after a short timeout exactly like `NotificationView`.
+  requires a tap to acknowledge. `RFIDView` specifically is triggered directly by the node's
+  on-device RFID reader (M5Dial's built-in MFRC522, `M5Dial.Rfid` - polled every `loop()` in
+  main.cpp and routed via `ViewManager::notifyRfidTagRead()`, see `IView::consumesRfidEvents()`),
+  not by an inbound Command; it displays the read tag's UID, confirms with a beep
+  (`Buzzer::confirm()`) on entry, publishes a `Report` for the tag, and auto-dismisses after a
+  short timeout exactly like `NotificationView`.
 - **ClockView** — idle/screensaver view (time + maybe next event) shown after inactivity timeout
   or as `deviceConfigurations[0]`. Views doing ongoing background work while focused (e.g.
   `TimerView` actively counting down) can override `IView::keepsAwake()` to suppress this timeout,
