@@ -52,6 +52,9 @@ const RGB NotificationSecondary = {187, 222, 251};  // #bbdefb
 const RGB Timer = {136, 14, 79};                    // #880e4f
 const RGB TimerSecondary = {248, 187, 208};         // #f8bbd0
 
+const RGB RFID = {245, 127, 23};                    // #f57f17
+const RGB RFIDSecondary = {255, 249, 196};          // #fff9c4
+
 // Packs an RGB triple into the 16-bit 5-6-5 color M5GFX/LovyanGFX canvas
 // drawing calls expect.
 inline uint16_t toRGB565(const RGB& c) {

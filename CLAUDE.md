@@ -248,11 +248,14 @@ and media-remote widgets):
   remaining time or completion.
 - **StatusOverviewView / DashboardView** — read-only glanceable summary of several
   `reportTemplates` (e.g. small icons/values), no interaction — useful as the "home" view.
-- **AlertView / NotificationView** — transient full-screen *popups*, not menu items: they're
-  excluded from the home carousel entirely (`ViewManager` filters out any view whose `isAlert()`
-  returns `true` when building the navigable menu) and are only ever shown when their inbound
-  `Command` arrives, interrupting whatever's currently on screen; auto-dismisses or requires a tap
-  to acknowledge.
+- **AlertView / NotificationView / RFIDView** — transient full-screen *popups*, not menu items:
+  they're excluded from the home carousel entirely (`ViewManager` filters out any view whose
+  `isAlert()` returns `true` when building the navigable menu) and are only ever shown when their
+  inbound `Command` arrives, interrupting whatever's currently on screen; auto-dismisses or
+  requires a tap to acknowledge. `RFIDView` specifically is activated by an inbound `Command`
+  carrying the value read from a scanned RFID tag (e.g. published by an external reader device);
+  it displays the read value, confirms with a beep (`Buzzer::confirm()`) on entry, and
+  auto-dismisses after a short timeout exactly like `NotificationView`.
 - **ClockView** — idle/screensaver view (time + maybe next event) shown after inactivity timeout
   or as `deviceConfigurations[0]`. Views doing ongoing background work while focused (e.g.
   `TimerView` actively counting down) can override `IView::keepsAwake()` to suppress this timeout,
@@ -284,6 +287,7 @@ color, and icon, forming a single design palette shared across the app:
 | `ColorSchemeView` | `#4a148c` | `#e1bee7` | `Assets/icons/ColorScheme.png` |
 | `NotificationView` | `#0d47a1` | `#bbdefb` | `Assets/icons/Notification.png` |
 | `PercentageView` | `#006064` | `#b2ebf2` | `Assets/icons/Percentage.png` |
+| `RFIDView` | `#f57f17` | `#fff9c4` | *(none — drawn with canvas primitives, not listed in the menu)* |
 | `SceneSelectorView` | `#1b5e20` | `#c8e6c9` | `Assets/icons/SceneSelector.png` |
 | `SliderView` | `#bf360c` | `#ffccbc` | `Assets/icons/Slider.png` |
 | `TimerView` | `#880e4f` | `#f8bbd0` | `Assets/icons/Timer.png` |

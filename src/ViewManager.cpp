@@ -62,6 +62,9 @@ const ViewStyle& styleForClassFullName(const String& classFullName, size_t fallb
                                              Icons::kNotificationPngLen};
     static const ViewStyle kTimer = {ViewColors::Timer.r, ViewColors::Timer.g, ViewColors::Timer.b, Icons::kTimerPng,
                                       Icons::kTimerPngLen};
+    // No icon asset yet for RFIDView (an isAlert() popup, never shown in the
+    // carousel) - falls back to the plain colored dot via drawViewIcon().
+    static const ViewStyle kRFID = {ViewColors::RFID.r, ViewColors::RFID.g, ViewColors::RFID.b, nullptr, 0};
 
     // Vivid fallback palette (no black/gray) for any classFullName not
     // explicitly styled above, cycled by the entry's position. No icon
@@ -84,6 +87,7 @@ const ViewStyle& styleForClassFullName(const String& classFullName, size_t fallb
     if (classFullName == "RIoT2.Ard.M5Dial.Node.AlertView") return kAlert;
     if (classFullName == "RIoT2.Ard.M5Dial.Node.NotificationView") return kNotification;
     if (classFullName == "RIoT2.Ard.M5Dial.Node.TimerView") return kTimer;
+    if (classFullName == "RIoT2.Ard.M5Dial.Node.RFIDView") return kRFID;
     return kFallback[fallbackIndex % kFallbackCount];
 }
 
