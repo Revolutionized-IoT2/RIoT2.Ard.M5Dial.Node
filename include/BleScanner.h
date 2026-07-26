@@ -7,10 +7,14 @@
 
 #include "BleTypes.h"
 
-// Wraps the M5Dial's on-chip BLE radio (the ESP32 Arduino core's bundled
-// BLE library - BLEDevice/BLEScan/BLEAdvertisedDeviceCallbacks, Bluedroid
-// backend) to continuously discover nearby BLE advertisers in the
-// background. Like the on-device RFID reader (see main.cpp's
+// Wraps the M5Dial's on-chip BLE radio (via NimBLE-Arduino - NimBLEDevice/
+// NimBLEScan/NimBLEScanCallbacks) to continuously discover nearby BLE
+// advertisers in the background. NimBLE is used instead of the ESP32
+// Arduino core's bundled Bluedroid BLE library because its host stack uses
+// substantially less RAM - this M5Stamp-S3 module has no PSRAM, and
+// WiFi + a Bluedroid BLE host together left only ~11-24KB of free heap,
+// too little for M5GFX's PNG icon decoder to reliably allocate its working
+// buffers. Like the on-device RFID reader (see main.cpp's
 // rfidActive/M5Dial.Rfid pattern), the BLE radio is only powered on if the
 // active configuration actually includes a view that wants BLE data
 // (BLEView, see ViewManager::hasBleConsumer()) - it stays off otherwise,
@@ -26,16 +30,16 @@
 //
 // Continuous scanning is implemented with a dedicated low-priority
 // background FreeRTOS task (see scanTask()) that repeatedly performs a
-// *blocking* BLEScan::start(seconds, false) call - blocking only that
-// background task, never the Arduino loop() task. This deliberately avoids
-// the alternative "non-blocking start() + scanCompleteCB that re-arms
+// *blocking* NimBLEScan::getResults(durationMs, false) call - blocking only
+// that background task, never the Arduino loop() task. This deliberately
+// avoids the alternative "non-blocking start() + onScanEnd that re-arms
 // itself" pattern: that callback fires from inside the BLE stack's own
-// GAP-event-processing task, and calling back into BLEScan::start() (which
-// re-enters esp_ble_gap_start_scanning()) from there caused reproducible
-// device resets shortly after the scanner started - recursing into the BLE
-// stack from its own event-dispatch context is not a supported pattern (no
-// bundled BLE example does this; they all call start() from a separate
-// task/loop instead).
+// event-processing task, and calling back into the scan-start APIs from
+// there caused reproducible device resets shortly after the scanner
+// started (confirmed with the original Bluedroid-based implementation) -
+// recursing into the BLE stack from its own event-dispatch context is not
+// a supported pattern (no bundled BLE example does this; they all call
+// start()/getResults() from a separate task/loop instead).
 class BleScanner {
 public:
     using DeviceEventCallback = std::function<void(const BleDeviceInfo&)>;
@@ -66,7 +70,9 @@ public:
 private:
     // Each cycle blocks the dedicated scan task (see scanTask()) for this
     // many seconds - never the Arduino loop() task, so this can be as long
-    // as desired without affecting UI/MQTT responsiveness.
+    // as desired without affecting UI/MQTT responsiveness. NimBLE's
+    // getResults() takes milliseconds (unlike the previous Bluedroid
+    // library's start(), which took seconds) - converted at the call site.
     static constexpr uint32_t kScanCycleSeconds = 30;
     static constexpr size_t kMaxPendingEvents = 64;
     static constexpr uint32_t kScanTaskStackSize = 4096;

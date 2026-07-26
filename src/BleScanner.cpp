@@ -1,8 +1,7 @@
 #include "BleScanner.h"
 
-#include <BLEAdvertisedDevice.h>
-#include <BLEDevice.h>
-#include <BLEScan.h>
+#include <NimBLEDevice.h>
+#include <WiFi.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
 #include <freertos/task.h>
@@ -27,21 +26,21 @@ String hexEncode(const std::string& raw) {
 
 }  // namespace
 
-// BLEAdvertisedDeviceCallbacks subclass invoked by the BLE stack's own task
-// for every advertisement seen (wantDuplicates=true in begin(), so this
-// fires repeatedly for the same device, not just the first time). Keeps no
-// state of its own - just copies out what it needs and hands it to
+// NimBLEScanCallbacks subclass invoked by the BLE stack's own task for
+// every advertisement seen (wantDuplicates=true in begin(), so this fires
+// repeatedly for the same device, not just the first time). Keeps no state
+// of its own - just copies out what it needs and hands it to
 // BleScanner::enqueue(), which is the only place that touches shared state,
 // under a mutex.
-class BleScanner::AdvertisedDeviceCallbacks : public BLEAdvertisedDeviceCallbacks {
+class BleScanner::AdvertisedDeviceCallbacks : public NimBLEScanCallbacks {
 public:
-    void onResult(BLEAdvertisedDevice advertisedDevice) override {
+    void onResult(const NimBLEAdvertisedDevice* advertisedDevice) override {
         PendingEvent event;
-        event.address = String(advertisedDevice.getAddress().toString().c_str());
-        event.name = advertisedDevice.haveName() ? String(advertisedDevice.getName().c_str()) : String();
-        event.rssi = advertisedDevice.haveRSSI() ? advertisedDevice.getRSSI() : 0;
+        event.address = String(advertisedDevice->getAddress().toString().c_str());
+        event.name = advertisedDevice->haveName() ? String(advertisedDevice->getName().c_str()) : String();
+        event.rssi = advertisedDevice->getRSSI();
         event.manufacturerDataHex =
-            advertisedDevice.haveManufacturerData() ? hexEncode(advertisedDevice.getManufacturerData()) : String();
+            advertisedDevice->haveManufacturerData() ? hexEncode(advertisedDevice->getManufacturerData()) : String();
         BleScanner::instance().enqueue(event);
     }
 };
@@ -59,12 +58,25 @@ void BleScanner::begin() {
     _mutex = xSemaphoreCreateMutex();
     _callbacks = new AdvertisedDeviceCallbacks();
 
-    BLEDevice::init("");
-    BLEScan* scan = BLEDevice::getScan();
+    // WifiConnection disables WiFi modem sleep entirely (WiFi.setSleep(false),
+    // WIFI_PS_NONE) to fix encoder jitter - but ESP32-S3 has a single radio
+    // shared between WiFi and BT, and the coexistence scheduler needs WiFi's
+    // periodic sleep windows to time-share it with BT. With WIFI_PS_NONE,
+    // enabling the BT controller crashes with `abort() ... coex_core_enable`
+    // (confirmed via serial monitor + esp32_exception_decoder backtrace:
+    // BLEDevice::init() -> btStart() -> esp_bt_controller_enable() ->
+    // coex_enable() -> coex_core_enable() -> abort()). Switching to the
+    // lightest modem-sleep mode restores just enough periodic sleep for
+    // coexistence to work, at the cost of reintroducing a little of that
+    // encoder latency - but only on nodes that actually configure a BLEView.
+    WiFi.setSleep(WIFI_PS_MIN_MODEM);
+
+    NimBLEDevice::init("");
+    NimBLEScan* scan = NimBLEDevice::getScan();
     // wantDuplicates=true so onResult() fires for every advertisement (not
     // just the first sighting of a device) - required to satisfy "forward
     // every BLE advertisement received" (see loop()'s onAdvertisement call).
-    scan->setAdvertisedDeviceCallbacks(_callbacks, /*wantDuplicates=*/true, /*shouldParse=*/true);
+    scan->setScanCallbacks(_callbacks, /*wantDuplicates=*/true);
     scan->setActiveScan(true);
     scan->setInterval(100);
     scan->setWindow(99);
@@ -78,15 +90,17 @@ void BleScanner::begin() {
 
 void BleScanner::scanTask(void* param) {
     (void)param;
-    // Runs forever on its own dedicated task: BLEScan::start(duration, false)
+    // Runs forever on its own dedicated task: NimBLEScan::getResults(ms, false)
     // blocks (this task only) until the scan completes, then we immediately
     // start another cycle - continuous scanning without ever blocking the
     // Arduino loop() task. See the class comment in BleScanner.h for why
     // this must be a separate task rather than a scan-complete callback
     // that re-arms itself from inside the BLE stack's own event task.
-    BLEScan* scan = BLEDevice::getScan();
+    NimBLEScan* scan = NimBLEDevice::getScan();
     for (;;) {
-        scan->start(kScanCycleSeconds, false);
+        // NimBLE's duration is milliseconds (unlike the previous Bluedroid
+        // library's start(), which took seconds) - kScanCycleSeconds * 1000.
+        scan->getResults(kScanCycleSeconds * 1000, false);
         scan->clearResults();
     }
 }
