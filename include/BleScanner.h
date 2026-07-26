@@ -23,6 +23,19 @@
 // _devices list updates) from inside loop() - keeping all app-visible state
 // single-threaded, consistent with the rest of this codebase (MQTT
 // publish, view rendering, etc. all happen on the main loop() task).
+//
+// Continuous scanning is implemented with a dedicated low-priority
+// background FreeRTOS task (see scanTask()) that repeatedly performs a
+// *blocking* BLEScan::start(seconds, false) call - blocking only that
+// background task, never the Arduino loop() task. This deliberately avoids
+// the alternative "non-blocking start() + scanCompleteCB that re-arms
+// itself" pattern: that callback fires from inside the BLE stack's own
+// GAP-event-processing task, and calling back into BLEScan::start() (which
+// re-enters esp_ble_gap_start_scanning()) from there caused reproducible
+// device resets shortly after the scanner started - recursing into the BLE
+// stack from its own event-dispatch context is not a supported pattern (no
+// bundled BLE example does this; they all call start() from a separate
+// task/loop instead).
 class BleScanner {
 public:
     using DeviceEventCallback = std::function<void(const BleDeviceInfo&)>;
@@ -51,11 +64,12 @@ public:
     static constexpr unsigned long kDeviceTimeoutMs = 60000;
 
 private:
-    // Restarted continuously (see BleScanner.cpp) - the scan-complete
-    // callback immediately re-arms another cycle, so scanning effectively
-    // never stops once begin() is called, without blocking loop().
+    // Each cycle blocks the dedicated scan task (see scanTask()) for this
+    // many seconds - never the Arduino loop() task, so this can be as long
+    // as desired without affecting UI/MQTT responsiveness.
     static constexpr uint32_t kScanCycleSeconds = 30;
     static constexpr size_t kMaxPendingEvents = 64;
+    static constexpr uint32_t kScanTaskStackSize = 4096;
 
     struct PendingEvent {
         String address;
@@ -68,14 +82,17 @@ private:
 
     BleScanner() = default;
 
-    void startScanCycle();
     void enqueue(const PendingEvent& event);
     BleDeviceInfo* findDevice(const String& address);
 
-    static void onScanComplete();
+    // Body of the dedicated background scan task created by begin() (see
+    // BleScanner.cpp for why this can't just be a scan-complete callback
+    // that re-arms itself from inside the BLE stack's own event task).
+    static void scanTask(void* param);
 
     bool _began = false;
-    void* _mutex = nullptr;  // SemaphoreHandle_t, opaque here to avoid pulling FreeRTOS headers into this .h
+    void* _mutex = nullptr;        // SemaphoreHandle_t, opaque here to avoid pulling FreeRTOS headers into this .h
+    void* _scanTaskHandle = nullptr;  // TaskHandle_t, same reasoning
     std::vector<PendingEvent> _pending;
     std::vector<BleDeviceInfo> _devices;
 

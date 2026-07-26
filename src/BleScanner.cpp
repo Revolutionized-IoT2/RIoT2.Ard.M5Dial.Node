@@ -5,6 +5,7 @@
 #include <BLEScan.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
+#include <freertos/task.h>
 
 namespace {
 
@@ -69,22 +70,25 @@ void BleScanner::begin() {
     scan->setWindow(99);
 
     _began = true;
-    startScanCycle();
+
+    TaskHandle_t taskHandle = nullptr;
+    xTaskCreate(&BleScanner::scanTask, "BleScan", kScanTaskStackSize, this, /*priority=*/1, &taskHandle);
+    _scanTaskHandle = taskHandle;
 }
 
-void BleScanner::startScanCycle() {
-    // Non-blocking continuous scan: start() returns immediately and invokes
-    // onScanComplete() once kScanCycleSeconds elapses, which immediately
-    // re-arms another cycle - see BLEScan::start()'s scanCompleteCB
-    // parameter. is_continue=true so the scan's own internal result cache
-    // (unused here - we track devices ourselves) isn't needlessly cleared
-    // between cycles.
-    BLEDevice::getScan()->start(kScanCycleSeconds, [](BLEScanResults) { BleScanner::onScanComplete(); },
-                                 /*is_continue=*/true);
-}
-
-void BleScanner::onScanComplete() {
-    instance().startScanCycle();
+void BleScanner::scanTask(void* param) {
+    (void)param;
+    // Runs forever on its own dedicated task: BLEScan::start(duration, false)
+    // blocks (this task only) until the scan completes, then we immediately
+    // start another cycle - continuous scanning without ever blocking the
+    // Arduino loop() task. See the class comment in BleScanner.h for why
+    // this must be a separate task rather than a scan-complete callback
+    // that re-arms itself from inside the BLE stack's own event task.
+    BLEScan* scan = BLEDevice::getScan();
+    for (;;) {
+        scan->start(kScanCycleSeconds, false);
+        scan->clearResults();
+    }
 }
 
 void BleScanner::enqueue(const PendingEvent& event) {
