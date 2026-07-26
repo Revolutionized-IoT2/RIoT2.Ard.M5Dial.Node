@@ -260,22 +260,28 @@ and media-remote widgets):
   short timeout exactly like `NotificationView`.
 - **BLEView** — a normal (non-alert) carousel entry that lists nearby BLE advertisers detected by
   the node's own BLE radio ([include/BleScanner.h](include/BleScanner.h) /
-  [src/BleScanner.cpp](src/BleScanner.cpp)), which wraps the ESP32 Arduino core's bundled
-  Bluedroid `BLEDevice.h` API (no extra `lib_deps` needed) with a continuous, non-blocking,
-  self-re-arming scan cycle and a mutex-guarded pending-event queue so BLE-stack-task callbacks
-  never touch shared state directly — only `BleScanner::loop()` (called from the main `loop()`)
-  drains it. Like `RFIDView`, scan events come from a physical hardware source independent of the
-  carousel and are routed via `IView::consumesBleEvents()` +
-  `ViewManager::notify{BleDeviceDiscovered,BleDeviceLost,BleAdvertisement}()`, and the on-device
-  radio is only powered on at all if the active configuration includes a BLE-consuming view
-  (`ViewManager::hasBleConsumer()`, checked in `main.cpp`) — but *unlike* `RFIDView`, receiving
-  these events never takes over the display. `BLEView` publishes a `Report` in three scenarios,
-  each resolved to a `reportTemplate` by matching its `address` field (`"deviceFound"`,
-  `"deviceLost"`, `"advertisement"`, falling back to positional order if `address` isn't set):
-  a newly-discovered device, a previously-seen device no longer present, and every raw
-  advertisement received (forwarded as-is). Report payloads embedding the advertised device
-  `name` (untrusted RF input) are built with `ArduinoJson`'s serializer rather than manual string
-  concatenation, so they're always valid, properly-escaped JSON.
+  [src/BleScanner.cpp](src/BleScanner.cpp)), which wraps `h2zero/NimBLE-Arduino`'s
+  `NimBLEDevice`/`NimBLEScan` API (added to `lib_deps`, chosen over the ESP32 Arduino core's
+  bundled Bluedroid `BLEDevice.h` for its much lower RAM footprint on this PSRAM-less board)
+  with a continuous, non-blocking, self-re-arming scan cycle and a mutex-guarded pending-event
+  queue so BLE-stack-task callbacks never touch shared state directly — only
+  `BleScanner::loop()` (called from the main `loop()`) drains it. Like `RFIDView`, scan events
+  come from a physical hardware source independent of the carousel and are routed via
+  `IView::consumesBleEvents()` + `ViewManager::notify{BleDeviceDiscovered,BleDeviceLost,
+  BleAdvertisement}()`, and the on-device radio is only powered on at all if the active
+  configuration includes a BLE-consuming view (`ViewManager::hasBleConsumer()`, checked in
+  `main.cpp`) — but *unlike* `RFIDView`, receiving these events never takes over the display.
+  `BLEView` publishes a `Report` in three scenarios, each resolved to a `reportTemplate` by
+  matching its `address` field (`"deviceFound"`, `"deviceLost"`, `"advertisement"`, falling back
+  to positional order if `address` isn't set): a newly-discovered device, a previously-seen
+  device no longer present, and every raw advertisement received (forwarded as-is). Report
+  payloads embedding the advertised device `name` (untrusted RF input) are built with
+  `ArduinoJson`'s serializer rather than manual string concatenation, so they're always valid,
+  properly-escaped JSON. An optional `allowedAddresses` deviceParameter (comma-separated BLE MAC
+  addresses, matched case-insensitively) restricts which devices generate these three reports;
+  devices outside the list are still discovered/tracked and shown on screen, they just don't
+  publish reports. If `allowedAddresses` is absent or blank, no filtering is applied and every
+  discovered device/advertisement is reported, matching the original behavior.
 - **ClockView** — idle/screensaver view (time + maybe next event) shown after inactivity timeout
   or as `deviceConfigurations[0]`. Views doing ongoing background work while focused (e.g.
   `TimerView` actively counting down) can override `IView::keepsAwake()` to suppress this timeout,

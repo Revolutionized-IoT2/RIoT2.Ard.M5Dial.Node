@@ -27,6 +27,15 @@
 // Any of the three may be omitted from the configuration; that scenario is
 // then simply not reported (the on-screen device list keeps working
 // regardless).
+//
+// Optional deviceParameters entry `allowedAddresses`: a comma-separated list
+// of BLE MAC addresses (matched case-insensitively) that reports should be
+// restricted to - e.g. "AA:BB:CC:DD:EE:FF, 11:22:33:44:55:66". Devices not
+// in the list are still discovered/tracked and shown on screen as before,
+// they just don't publish deviceFound/deviceLost/advertisement reports. If
+// this parameter is absent or blank, no filtering is applied and reports are
+// published for every discovered device/advertisement, matching the
+// pre-existing behavior.
 class BLEView : public IView {
 public:
     void begin(const DeviceConfiguration& config) override;
@@ -46,9 +55,11 @@ private:
     String _deviceFoundReportId;
     String _deviceLostReportId;
     String _advertisementReportId;
+    std::vector<String> _allowedAddresses;
 
     std::vector<BleDeviceInfo> _devices;
     int _scrollOffset = 0;
 
     void clampScrollOffset();
+    bool isAddressAllowed(const String& address) const;
 };

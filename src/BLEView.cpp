@@ -51,6 +51,27 @@ String advertisementJson(const BleAdvertisement& advertisement) {
     return out;
 }
 
+// Splits the `allowedAddresses` deviceParameter (comma-separated MAC
+// addresses, e.g. "AA:BB:CC:DD:EE:FF, 11:22:33:44:55:66") into a list of
+// trimmed, non-empty tokens. An empty/blank input yields an empty vector.
+std::vector<String> splitAddressList(const String& raw) {
+    std::vector<String> result;
+    int start = 0;
+    while (start <= static_cast<int>(raw.length())) {
+        int comma = raw.indexOf(',', start);
+        String token = (comma == -1) ? raw.substring(start) : raw.substring(start, comma);
+        token.trim();
+        if (token.length() > 0) {
+            result.push_back(token);
+        }
+        if (comma == -1) {
+            break;
+        }
+        start = comma + 1;
+    }
+    return result;
+}
+
 }  // namespace
 
 void BLEView::begin(const DeviceConfiguration& config) {
@@ -58,8 +79,24 @@ void BLEView::begin(const DeviceConfiguration& config) {
     _deviceFoundReportId = resolveReportId(config.reportTemplates, "deviceFound", 0);
     _deviceLostReportId = resolveReportId(config.reportTemplates, "deviceLost", 1);
     _advertisementReportId = resolveReportId(config.reportTemplates, "advertisement", 2);
+    _allowedAddresses = splitAddressList(findParameter(config.deviceParameters, "allowedAddresses", ""));
     _devices.clear();
     _scrollOffset = 0;
+}
+
+// Reports are restricted to `_allowedAddresses` when it's non-empty; an
+// empty list (parameter absent/blank) means "no filtering", matching the
+// pre-existing behavior of reporting every discovered device/advertisement.
+bool BLEView::isAddressAllowed(const String& address) const {
+    if (_allowedAddresses.empty()) {
+        return true;
+    }
+    for (const auto& allowed : _allowedAddresses) {
+        if (allowed.equalsIgnoreCase(address)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 void BLEView::clampScrollOffset() {
@@ -89,7 +126,7 @@ bool BLEView::isInteracting() const {
 
 void BLEView::onBleDeviceDiscovered(const BleDeviceInfo& device) {
     _devices.push_back(device);
-    if (_deviceFoundReportId.length() > 0) {
+    if (_deviceFoundReportId.length() > 0 && isAddressAllowed(device.address)) {
         publishReport(Report{_deviceFoundReportId, deviceJson(device.address, device.name, device.rssi)});
     }
 }
@@ -103,7 +140,7 @@ void BLEView::onBleDeviceLost(const String& address) {
     }
     clampScrollOffset();
 
-    if (_deviceLostReportId.length() > 0) {
+    if (_deviceLostReportId.length() > 0 && isAddressAllowed(address)) {
         // `address` is always a colon-separated hex MAC (from BLEAddress::toString()),
         // so it's safe to embed directly as a quoted JSON string literal.
         publishReport(Report{_deviceLostReportId, String("\"") + address + "\""});
@@ -111,7 +148,7 @@ void BLEView::onBleDeviceLost(const String& address) {
 }
 
 void BLEView::onBleAdvertisement(const BleAdvertisement& advertisement) {
-    if (_advertisementReportId.length() > 0) {
+    if (_advertisementReportId.length() > 0 && isAddressAllowed(advertisement.address)) {
         publishReport(Report{_advertisementReportId, advertisementJson(advertisement)});
     }
 }

@@ -150,7 +150,7 @@
         { "id": "ble-device-lost-report", "type": "1", "name": "BLE Device Lost", "address": "deviceLost", "parameters": {} },
         { "id": "ble-advertisement-report", "type": "1", "name": "BLE Advertisement", "address": "advertisement", "parameters": {} }
       ],
-      "deviceParameters": { "header": "Nearby BLE" }
+      "deviceParameters": { "header": "Nearby BLE", "allowedAddresses": "" }
     }
   ]
 }
