@@ -419,6 +419,15 @@ void ViewManager::onCommand(const String& commandId, const Command& command) {
     Serial.printf("[ViewManager] No view owns commandTemplate id=%s\n", commandId.c_str());
 }
 
+bool ViewManager::hasRfidConsumer() const {
+    for (const auto& entry : _entries) {
+        if (entry.view->consumesRfidEvents()) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void ViewManager::notifyRfidTagRead(const String& value) {
     for (size_t i = 0; i < _entries.size(); ++i) {
         Entry& entry = _entries[i];

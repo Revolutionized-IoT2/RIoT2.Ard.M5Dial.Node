@@ -79,6 +79,13 @@ constexpr unsigned long kRfidRepeatSuppressMs = 3000;
 String lastRfidUid;
 unsigned long lastRfidReadMs = 0;
 
+// The on-device RFID reader is only powered up/polled once the active
+// configuration actually includes a view that consumes tag reads (e.g.
+// RFIDView) - see updateRfidActivation(). rfidInitialized guards against
+// calling M5Dial.Rfid.begin() more than once; rfidActive gates pollRfid().
+bool rfidInitialized = false;
+bool rfidActive = false;
+
 void showStatus(const String& line1, const String& line2 = "") {
     M5Dial.Display.fillScreen(BLACK);
     M5Dial.Display.setTextColor(WHITE);
@@ -224,6 +231,16 @@ void handleConfigurationUpdated(const NodeConfiguration& nodeConfiguration) {
                       static_cast<unsigned>(device.reportTemplates.size()));
     }
     viewManager.rebuild(nodeConfiguration);
+
+    // Only power up the on-device RFID reader if this configuration actually
+    // has a view that wants tag reads (e.g. RFIDView) - it stays off
+    // otherwise, rather than being enabled unconditionally at boot.
+    rfidActive = viewManager.hasRfidConsumer();
+    if (rfidActive && !rfidInitialized) {
+        Serial.println("[RFID] Configuration includes an RFID-consuming view, enabling on-device reader");
+        M5Dial.Rfid.begin();
+        rfidInitialized = true;
+    }
 }
 
 void factoryReset() {
@@ -274,7 +291,7 @@ void setup() {
     Serial.begin(115200);
 
     auto cfg = M5.config();
-    M5Dial.begin(cfg, true, true);
+    M5Dial.begin(cfg, true, false);
 
     config = NodeConfigStore::load();
 
@@ -321,7 +338,7 @@ void loop() {
     wifi.loop();
     mqtt.loop();
 
-    if (viewManager.hasViews()) {
+    if (rfidActive) {
         pollRfid();
     }
 

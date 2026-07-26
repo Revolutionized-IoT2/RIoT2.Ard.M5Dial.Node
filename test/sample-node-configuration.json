@@ -129,6 +129,16 @@
         { "id": "kitchen-timer-report", "type": "2", "name": "Kitchen Timer", "address": "timer-1", "parameters": {} }
       ],
       "deviceParameters": { "defaultMinutes": "10", "stepMinutes": "1", "maxMinutes": "60" }
+    },
+    {
+      "id": "view-rfid",
+      "name": "Access Card Reader",
+      "classFullName": "RIoT2.Ard.M5Dial.Node.RFIDView",
+      "commandTemplates": [],
+      "reportTemplates": [
+        { "id": "access-card-report", "type": "1", "name": "Access Card Reader", "address": "", "parameters": {} }
+      ],
+      "deviceParameters": { "title": "Access Card", "durationMs": "4000", "subHeader": "read on-device, auto-dismisses" }
     }
   ]
 }

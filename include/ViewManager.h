@@ -52,6 +52,13 @@ public:
     Mode mode() const { return _mode; }
     bool isFocused() const { return _mode == Mode::Focused && activeView() != nullptr; }
 
+    // True if the current NodeConfiguration includes at least one view with
+    // IView::consumesRfidEvents() (e.g. RFIDView). main.cpp uses this to
+    // decide whether to power up/poll the node's on-device RFID reader at
+    // all - it stays off when no configured view actually consumes tag
+    // reads, rather than being enabled unconditionally at boot.
+    bool hasRfidConsumer() const;
+
     // Leaves the currently focused view and returns to the home carousel,
     // highlighting the view that was just exited. No-op if already showing
     // the carousel.
