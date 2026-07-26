@@ -9,7 +9,7 @@
 // Orchestrator (GET {apiBaseUrl}api/Nodes/{id}/configuration). Mirrors
 // RIoT2.Core.Models (CommandTemplate, ReportTemplate, DeviceConfiguration).
 
-// Free-form string dictionary helper shared by CommandTemplate/ReportTemplate/DeviceConfiguration.
+// Free-form string dictionary helper shared by ReportTemplate/DeviceConfiguration.
 using ParameterList = std::vector<std::pair<String, String>>;
 
 struct CommandTemplate {
@@ -19,7 +19,6 @@ struct CommandTemplate {
     String address;
     int valueType = 0;  // mirrors RIoT2.Core.Enums.ValueType
     bool model = false;
-    ParameterList parameters;
 };
 
 inline String findParameter(const ParameterList& params, const String& key, const String& defaultValue = "") {

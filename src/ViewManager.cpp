@@ -404,9 +404,7 @@ void ViewManager::onCommand(const String& commandId, const Command& command) {
         Entry& entry = _entries[i];
         for (const auto& cmdTemplate : entry.config.commandTemplates) {
             if (cmdTemplate.id == commandId) {
-                Command commandWithParams = command;
-                commandWithParams.parameters = cmdTemplate.parameters;
-                entry.view->onCommand(commandWithParams);
+                entry.view->onCommand(command);
 
                 // Alert-like views (AlertView/NotificationView) interrupt
                 // whatever is currently shown as soon as their command

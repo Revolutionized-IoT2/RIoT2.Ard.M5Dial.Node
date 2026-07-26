@@ -367,6 +367,7 @@ void setup() {
     // decoder entirely - dialEncoder (hardware PCNT, set up below) reads the
     // same DIAL_ENCODER_PIN_A/B pins without its missed-edge-under-load risk.
     M5Dial.begin(cfg, false, false);
+    Buzzer::begin();
 
     ESP32Encoder::useInternalWeakPullResistors = puType::up;
     dialEncoder.attachFullQuad(DIAL_ENCODER_PIN_A, DIAL_ENCODER_PIN_B);

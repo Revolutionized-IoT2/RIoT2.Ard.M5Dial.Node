@@ -21,9 +21,12 @@
 // defaults ("Alert" title, empty message, "tap to acknowledge" subHeader)
 // when the value doesn't specify them.
 //
-// The command's own "soundEnabled" parameter (default "false") controls
-// whether an alert sound (Buzzer::error()) plays when that particular command
-// takes over the display - set per commandTemplate, not per view.
+// The Command's `value` object may also include a "soundEnabled" field
+// (default false) controlling whether an alert sound (Buzzer::error()) plays
+// when that particular command takes over the display - e.g. { "title": "...",
+// "message": "...", "soundEnabled": true }. Sent per-command rather than as a
+// commandTemplate parameter, since RIoT2.Core doesn't support parameters on
+// commandTemplates.
 class AlertView : public IView {
 public:
     void begin(const DeviceConfiguration& config) override;

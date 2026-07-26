@@ -7,6 +7,13 @@
 // mixes tones on a background task), safe to call from render/input handlers.
 namespace Buzzer {
 
+// M5Unified's default speaker master volume is only 64/255 - quite quiet on
+// the M5Dial's small piezo speaker. Call once from setup() to turn it up to
+// max; all tone()s below share this master volume.
+inline void begin() {
+    M5Dial.Speaker.setVolume(255);
+}
+
 // A light click, for momentary/toggle actions (ButtonView, ToggleView).
 inline void tap() {
     M5Dial.Speaker.tone(1200, 40);

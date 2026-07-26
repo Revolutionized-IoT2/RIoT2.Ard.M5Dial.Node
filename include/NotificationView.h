@@ -20,9 +20,12 @@
 // doesn't specify them. The auto-dismiss timeout defaults to 4 seconds,
 // overridable via this view's "durationMs" deviceParameter.
 //
-// The command's own "soundEnabled" parameter (default "false") controls
-// whether a notification ping (Buzzer::confirm()) plays when that particular
-// command takes over the display - set per commandTemplate, not per view.
+// The Command's `value` object may also include a "soundEnabled" field
+// (default false) controlling whether a notification ping (Buzzer::confirm())
+// plays when that particular command takes over the display - e.g.
+// { "title": "...", "message": "...", "soundEnabled": true }. Sent per-command
+// rather than as a commandTemplate parameter, since RIoT2.Core doesn't support
+// parameters on commandTemplates.
 class NotificationView : public IView {
 public:
     void begin(const DeviceConfiguration& config) override;

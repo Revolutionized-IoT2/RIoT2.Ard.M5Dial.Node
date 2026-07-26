@@ -30,6 +30,22 @@ String extractMessage(const JsonVariantConst& value, const String& fallback) {
     }
     return extractField(value, "message", extractField(value, "text", fallback));
 }
+
+// Reads an optional "soundEnabled" field out of the Command's `value` object.
+// Accepts a real JSON boolean (expected) or a "true"/"false" string, so it
+// tolerates either representation from the orchestrator.
+bool extractSoundEnabled(const JsonVariantConst& value, bool fallback) {
+    if (value.is<JsonObjectConst>()) {
+        JsonVariantConst v = value.as<JsonObjectConst>()["soundEnabled"];
+        if (v.is<bool>()) {
+            return v.as<bool>();
+        }
+        if (v.is<const char*>()) {
+            return String(v.as<const char*>()).equalsIgnoreCase("true");
+        }
+    }
+    return fallback;
+}
 }  // namespace
 
 void AlertView::begin(const DeviceConfiguration& config) {
@@ -62,7 +78,7 @@ void AlertView::onCommand(const Command& command) {
     _title = extractField(command.value, "title", "Alert");
     _message = extractMessage(command.value, "");
     _subHeader = extractField(command.value, "subHeader", "tap to acknowledge");
-    _soundEnabled = findParameter(command.parameters, "soundEnabled", "false").equalsIgnoreCase("true");
+    _soundEnabled = extractSoundEnabled(command.value, false);
 }
 
 void AlertView::render(M5Canvas& canvas) {
