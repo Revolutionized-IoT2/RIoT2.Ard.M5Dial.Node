@@ -1,13 +1,11 @@
 {
   "name": "M5Dial Test Node",
-  "id": "98D067AB-9672-45D1-81DF-110B4B82455D",
+  "id": "D9D86D96-06C1-4C61-D6BEB2E3FA8D",
   "deviceConfigurations": [
     {
       "id": "view-clock",
       "name": "Clock",
       "classFullName": "RIoT2.Ard.M5Dial.Node.ClockView",
-      "commandTemplates": [],
-      "reportTemplates": [],
       "deviceParameters": { "timezone": "EET-2EEST,M3.5.0/3,M10.5.0/4" }
     },
     {
@@ -15,14 +13,14 @@
       "name": "Living Room Lights",
       "classFullName": "RIoT2.Ard.M5Dial.Node.ButtonView",
       "commandTemplates": [
-        { "id": "btn-livingroom-cmd", "type": "0", "name": "Living Room", "address": "btn-1", "valueType": 0, "model": false },
-        { "id": "btn-kitchen-cmd", "type": "0", "name": "Kitchen", "address": "btn-2", "valueType": 0, "model": false },
-        { "id": "btn-bedroom-cmd", "type": "0", "name": "Bedroom", "address": "btn-3", "valueType": 0, "model": false }
+        { "id": "btn-livingroom-cmd", "type": 0, "name": "Living Room", "address": "btn-1", "model": false },
+        { "id": "btn-kitchen-cmd", "type": 0, "name": "Kitchen", "address": "btn-2", "model": false },
+        { "id": "btn-bedroom-cmd", "type": 0, "name": "Bedroom", "address": "btn-3", "model": false }
       ],
       "reportTemplates": [
-        { "id": "btn-livingroom-report", "type": "0", "name": "Living Room", "address": "btn-1", "parameters": { "icon": "bulb" } },
-        { "id": "btn-kitchen-report", "type": "0", "name": "Kitchen", "address": "btn-2", "parameters": { "icon": "bulb" } },
-        { "id": "btn-bedroom-report", "type": "0", "name": "Bedroom", "address": "btn-3", "parameters": { "icon": "bulb" } }
+        { "id": "btn-livingroom-report", "type": 0, "name": "Living Room", "address": "btn-1", "parameters": { "icon": "bulb" } },
+        { "id": "btn-kitchen-report", "type": 0, "name": "Kitchen", "address": "btn-2", "parameters": { "icon": "bulb" } },
+        { "id": "btn-bedroom-report", "type": 0, "name": "Bedroom", "address": "btn-3", "parameters": { "icon": "bulb" } }
       ],
       "deviceParameters": { "header": "Lights", "subHeader": "tap a room to toggle" }
     },
@@ -31,22 +29,21 @@
       "name": "Porch Relay",
       "classFullName": "RIoT2.Ard.M5Dial.Node.ToggleView",
       "commandTemplates": [
-        { "id": "porch-relay-cmd", "type": "0", "name": "Porch Relay", "address": "relay-1", "valueType": 0, "model": false }
+        { "id": "porch-relay-cmd", "type": 0, "name": "Porch Relay", "address": "relay-1", "model": false }
       ],
       "reportTemplates": [
-        { "id": "porch-relay-report", "type": "0", "name": "Porch Relay", "address": "relay-1", "parameters": {} }
-      ],
-      "deviceParameters": {}
+        { "id": "porch-relay-report", "type": 0, "name": "Porch Relay", "address": "relay-1", "parameters": {} }
+      ]
     },
     {
       "id": "view-slider",
       "name": "Fan Speed",
       "classFullName": "RIoT2.Ard.M5Dial.Node.SliderView",
       "commandTemplates": [
-        { "id": "fan-speed-cmd", "type": "2", "name": "Fan Speed", "address": "fan-1", "valueType": 2, "model": false }
+        { "id": "fan-speed-cmd", "type": 2, "name": "Fan Speed", "address": "fan-1", "model": 0 }
       ],
       "reportTemplates": [
-        { "id": "fan-speed-report", "type": "2", "name": "Fan Speed", "address": "fan-1", "parameters": {} }
+        { "id": "fan-speed-report", "type": 2, "name": "Fan Speed", "address": "fan-1", "parameters": {} }
       ],
       "deviceParameters": { "min": "0", "max": "10", "step": "1", "unit": "" }
     },
@@ -55,67 +52,59 @@
       "name": "Bedroom Dimmer",
       "classFullName": "RIoT2.Ard.M5Dial.Node.PercentageView",
       "commandTemplates": [
-        { "id": "dimmer-cmd", "type": "2", "name": "Bedroom Dimmer", "address": "dimmer-1", "valueType": 2, "model": false }
+        { "id": "dimmer-cmd", "type": 2, "name": "Bedroom Dimmer", "address": "dimmer-1", "model": 0 }
       ],
       "reportTemplates": [
-        { "id": "dimmer-report", "type": "2", "name": "Bedroom Dimmer", "address": "dimmer-1", "parameters": {} }
-      ],
-      "deviceParameters": {}
+        { "id": "dimmer-report", "type": 2, "name": "Bedroom Dimmer", "address": "dimmer-1", "parameters": {} }
+      ]
     },
     {
       "id": "view-colorscheme",
       "name": "Office Lamp Color",
       "classFullName": "RIoT2.Ard.M5Dial.Node.ColorSchemeView",
       "commandTemplates": [
-        { "id": "lamp-color-cmd", "type": "1", "name": "Office Lamp Color", "address": "lamp-1", "valueType": 1, "model": false }
+        { "id": "lamp-color-cmd", "type": 1, "name": "Office Lamp Color", "address": "lamp-1", "model": "#000000" }
       ],
       "reportTemplates": [
-        { "id": "lamp-color-report", "type": "1", "name": "Office Lamp Color", "address": "lamp-1", "parameters": {} }
-      ],
-      "deviceParameters": {}
+        { "id": "lamp-color-report", "type": 1, "name": "Office Lamp Color", "address": "lamp-1", "parameters": {} }
+      ]
     },
     {
       "id": "view-values",
       "name": "Weather Station",
       "classFullName": "RIoT2.Ard.M5Dial.Node.ValueView",
       "commandTemplates": [
-        { "id": "temperature-cmd", "type": "2", "name": "Temperature", "address": "temp-1", "valueType": 2, "model": false },
-        { "id": "humidity-cmd", "type": "2", "name": "Humidity", "address": "humidity-1", "valueType": 2, "model": false }
+        { "id": "temperature-cmd", "type": 2, "name": "Temperature", "address": "temp-1", "model": "21" },
+        { "id": "humidity-cmd", "type": 2, "name": "Humidity", "address": "humidity-1", "model": "99" }
       ],
-      "reportTemplates": [],
       "deviceParameters": { "unit1": "C", "unit2": "%" }
     },
     {
       "id": "view-scenes",
       "name": "Scenes",
       "classFullName": "RIoT2.Ard.M5Dial.Node.SceneSelectorView",
-      "commandTemplates": [],
       "reportTemplates": [
-        { "id": "scene-movie-night", "type": "0", "name": "Movie Night", "address": "", "parameters": {} },
-        { "id": "scene-dinner", "type": "0", "name": "Dinner", "address": "", "parameters": {} },
-        { "id": "scene-good-morning", "type": "0", "name": "Good Morning", "address": "", "parameters": {} },
-        { "id": "scene-good-night", "type": "0", "name": "Good Night", "address": "", "parameters": {} }
-      ],
-      "deviceParameters": {}
+        { "id": "scene-movie-night", "type": 1, "name": "Movie Night", "address": "", "parameters": {} },
+        { "id": "scene-dinner", "type": 1, "name": "Dinner", "address": "", "parameters": {} },
+        { "id": "scene-good-morning", "type": 1, "name": "Good Morning", "address": "", "parameters": {} },
+        { "id": "scene-good-night", "type": 1, "name": "Good Night", "address": "", "parameters": {} }
+      ]
     },
     {
       "id": "view-alert",
       "name": "Doorbell Alert",
       "classFullName": "RIoT2.Ard.M5Dial.Node.AlertView",
       "commandTemplates": [
-        { "id": "doorbell-alert-cmd", "type": "1", "name": "Doorbell Alert", "address": "doorbell-1", "valueType": 1, "model": false }
-      ],
-      "reportTemplates": [],
-      "deviceParameters": {}
+        { "id": "doorbell-alert-cmd", "type": 1, "name": "Doorbell Alert", "address": "doorbell-1", "model": { "title": "Doorbell", "message": "Someone is at the front door", "subHeader": "tap to acknowledge" } }
+      ]
     },
     {
       "id": "view-notification",
       "name": "Status Notice",
       "classFullName": "RIoT2.Ard.M5Dial.Node.NotificationView",
       "commandTemplates": [
-        { "id": "status-notice-cmd", "type": "1", "name": "Status Notice", "address": "notice-1", "valueType": 1, "model": false }
+        { "id": "status-notice-cmd", "type": 1, "name": "Status Notice", "address": "notice-1", "valueType": 3, "model": { "title": "Washing machine", "message": "Cycle complete", "subHeader": "read on-device, auto-dismisses" } }
       ],
-      "reportTemplates": [],
       "deviceParameters": { "durationMs": "5000" }
     },
     {
@@ -123,10 +112,10 @@
       "name": "Kitchen Timer",
       "classFullName": "RIoT2.Ard.M5Dial.Node.TimerView",
       "commandTemplates": [
-        { "id": "kitchen-timer-cmd", "type": "2", "name": "Kitchen Timer", "address": "timer-1", "valueType": 2, "model": false }
+        { "id": "kitchen-timer-cmd", "type": 2, "name": "Kitchen Timer", "address": "timer-1", "valueType": 0, "model": false }
       ],
       "reportTemplates": [
-        { "id": "kitchen-timer-report", "type": "2", "name": "Kitchen Timer", "address": "timer-1", "parameters": {} }
+        { "id": "kitchen-timer-report", "type": 2, "name": "Kitchen Timer", "address": "timer-1", "parameters": {} }
       ],
       "deviceParameters": { "defaultMinutes": "10", "stepMinutes": "1", "maxMinutes": "60" }
     },
@@ -134,9 +123,8 @@
       "id": "view-rfid",
       "name": "Access Card Reader",
       "classFullName": "RIoT2.Ard.M5Dial.Node.RFIDView",
-      "commandTemplates": [],
       "reportTemplates": [
-        { "id": "access-card-report", "type": "1", "name": "Access Card Reader", "address": "", "parameters": {} }
+        { "id": "access-card-report", "type": 1, "name": "Access Card Reader", "address": "", "parameters": {} }
       ],
       "deviceParameters": { "title": "Access Card", "durationMs": "4000", "subHeader": "read on-device, auto-dismisses" }
     },
@@ -144,11 +132,10 @@
       "id": "view-ble",
       "name": "Nearby Bluetooth",
       "classFullName": "RIoT2.Ard.M5Dial.Node.BLEView",
-      "commandTemplates": [],
       "reportTemplates": [
-        { "id": "ble-device-found-report", "type": "1", "name": "BLE Device Found", "address": "deviceFound", "parameters": { "allowedAddresses": "" } },
-        { "id": "ble-device-lost-report", "type": "1", "name": "BLE Device Lost", "address": "deviceLost", "parameters": { "allowedAddresses": "" } },
-        { "id": "ble-advertisement-report", "type": "1", "name": "BLE Advertisement", "address": "advertisement", "parameters": { "allowedAddresses": "" } }
+        { "id": "ble-device-found-report", "type": 1, "name": "BLE Device Found", "address": "deviceFound", "parameters": { "allowedAddresses": "" } },
+        { "id": "ble-device-lost-report", "type": 1, "name": "BLE Device Lost", "address": "deviceLost", "parameters": { "allowedAddresses": "" } },
+        { "id": "ble-advertisement-report", "type": 1, "name": "BLE Advertisement", "address": "advertisement", "parameters": { "allowedAddresses": "" } }
       ],
       "deviceParameters": { "header": "Nearby BLE" }
     }
