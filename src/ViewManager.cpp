@@ -65,6 +65,8 @@ const ViewStyle& styleForClassFullName(const String& classFullName, size_t fallb
     // No icon asset yet for RFIDView (an isAlert() popup, never shown in the
     // carousel) - falls back to the plain colored dot via drawViewIcon().
     static const ViewStyle kRFID = {ViewColors::RFID.r, ViewColors::RFID.g, ViewColors::RFID.b, nullptr, 0};
+    static const ViewStyle kBLE = {ViewColors::BLE.r, ViewColors::BLE.g, ViewColors::BLE.b, Icons::kBLEPng,
+                                    Icons::kBLEPngLen};
 
     // Vivid fallback palette (no black/gray) for any classFullName not
     // explicitly styled above, cycled by the entry's position. No icon
@@ -88,6 +90,7 @@ const ViewStyle& styleForClassFullName(const String& classFullName, size_t fallb
     if (classFullName == "RIoT2.Ard.M5Dial.Node.NotificationView") return kNotification;
     if (classFullName == "RIoT2.Ard.M5Dial.Node.TimerView") return kTimer;
     if (classFullName == "RIoT2.Ard.M5Dial.Node.RFIDView") return kRFID;
+    if (classFullName == "RIoT2.Ard.M5Dial.Node.BLEView") return kBLE;
     return kFallback[fallbackIndex % kFallbackCount];
 }
 
@@ -444,6 +447,39 @@ void ViewManager::notifyRfidTagRead(const String& value) {
             enterFocused(i);
             _idle = false;
             _lastInputMs = millis();
+        }
+    }
+}
+
+bool ViewManager::hasBleConsumer() const {
+    for (const auto& entry : _entries) {
+        if (entry.view->consumesBleEvents()) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void ViewManager::notifyBleDeviceDiscovered(const BleDeviceInfo& device) {
+    for (auto& entry : _entries) {
+        if (entry.view->consumesBleEvents()) {
+            entry.view->onBleDeviceDiscovered(device);
+        }
+    }
+}
+
+void ViewManager::notifyBleDeviceLost(const String& address) {
+    for (auto& entry : _entries) {
+        if (entry.view->consumesBleEvents()) {
+            entry.view->onBleDeviceLost(address);
+        }
+    }
+}
+
+void ViewManager::notifyBleAdvertisement(const BleAdvertisement& advertisement) {
+    for (auto& entry : _entries) {
+        if (entry.view->consumesBleEvents()) {
+            entry.view->onBleAdvertisement(advertisement);
         }
     }
 }

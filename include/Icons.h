@@ -11,6 +11,9 @@ namespace Icons {
 extern const uint8_t kAlertPng[];
 extern const size_t kAlertPngLen;
 
+extern const uint8_t kBLEPng[];
+extern const size_t kBLEPngLen;
+
 extern const uint8_t kButtonPng[];
 extern const size_t kButtonPngLen;
 

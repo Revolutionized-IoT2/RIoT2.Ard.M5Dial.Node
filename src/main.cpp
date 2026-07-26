@@ -4,6 +4,7 @@
 #include <WiFi.h>
 #include <time.h>
 
+#include "BleScanner.h"
 #include "Buzzer.h"
 #include "Command.h"
 #include "MqttConnection.h"
@@ -85,6 +86,13 @@ unsigned long lastRfidReadMs = 0;
 // calling M5Dial.Rfid.begin() more than once; rfidActive gates pollRfid().
 bool rfidInitialized = false;
 bool rfidActive = false;
+
+// The node's on-device BLE radio is likewise only powered on once the
+// active configuration actually includes a view that consumes BLE scan
+// events (e.g. BLEView) - see handleConfigurationUpdated(). Once started,
+// BleScanner scans continuously in the background (see BleScanner.h); there
+// is no corresponding "turn back off" path, mirroring the RFID reader.
+bool bleActive = false;
 
 void showStatus(const String& line1, const String& line2 = "") {
     M5Dial.Display.fillScreen(BLACK);
@@ -241,6 +249,15 @@ void handleConfigurationUpdated(const NodeConfiguration& nodeConfiguration) {
         M5Dial.Rfid.begin();
         rfidInitialized = true;
     }
+
+    // Same gating for the on-device BLE radio: only enable it if this
+    // configuration actually has a view that wants BLE scan events (e.g.
+    // BLEView, see BleScanner.h).
+    if (viewManager.hasBleConsumer() && !bleActive) {
+        Serial.println("[BLE] Configuration includes a BLE-consuming view, enabling on-device BLE scanner");
+        BleScanner::instance().begin();
+        bleActive = true;
+    }
 }
 
 void factoryReset() {
@@ -321,6 +338,12 @@ void setup() {
     viewManager.onReport(handleReport);
     orchestratorClient.onConfigurationUpdated(handleConfigurationUpdated);
 
+    BleScanner::instance().onDeviceDiscovered(
+        [](const BleDeviceInfo& device) { viewManager.notifyBleDeviceDiscovered(device); });
+    BleScanner::instance().onDeviceLost([](const String& address) { viewManager.notifyBleDeviceLost(address); });
+    BleScanner::instance().onAdvertisement(
+        [](const BleAdvertisement& advertisement) { viewManager.notifyBleAdvertisement(advertisement); });
+
     mqtt.onCommand(handleCommand);
     mqtt.onOrchestratorOnline(handleOrchestratorOnline);
     mqtt.onConfigurationMessage(handleConfigurationMessage);
@@ -340,6 +363,10 @@ void loop() {
 
     if (rfidActive) {
         pollRfid();
+    }
+
+    if (bleActive) {
+        BleScanner::instance().loop();
     }
 
     bool statusChanged = wifi.state() != lastWifiState || mqtt.state() != lastMqttState;

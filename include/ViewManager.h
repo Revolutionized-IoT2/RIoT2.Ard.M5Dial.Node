@@ -6,6 +6,7 @@
 #include <memory>
 #include <vector>
 
+#include "BleTypes.h"
 #include "ClockView.h"
 #include "Command.h"
 #include "DeviceConfiguration.h"
@@ -59,6 +60,13 @@ public:
     // reads, rather than being enabled unconditionally at boot.
     bool hasRfidConsumer() const;
 
+    // True if the current NodeConfiguration includes at least one view with
+    // IView::consumesBleEvents() (e.g. BLEView). main.cpp uses this to
+    // decide whether to power up the node's on-device BLE radio at all - it
+    // stays off when no configured view actually consumes BLE scan events,
+    // rather than being enabled unconditionally at boot (see BleScanner.h).
+    bool hasBleConsumer() const;
+
     // Leaves the currently focused view and returns to the home carousel,
     // highlighting the view that was just exited. No-op if already showing
     // the carousel.
@@ -78,6 +86,14 @@ public:
     // currently focused), taking over the display for it just like an
     // isAlert() view does for an inbound command (see onCommand()).
     void notifyRfidTagRead(const String& value);
+
+    // Routes BLE scan events from BleScanner to every entry with
+    // IView::consumesBleEvents() (regardless of which view is currently
+    // focused). Unlike notifyRfidTagRead(), these never take over the
+    // display - BLEView is a normal carousel entry, not an alert/popup.
+    void notifyBleDeviceDiscovered(const BleDeviceInfo& device);
+    void notifyBleDeviceLost(const String& address);
+    void notifyBleAdvertisement(const BleAdvertisement& advertisement);
 
     void render(M5Canvas& canvas);
 

@@ -5,6 +5,7 @@
 
 #include <functional>
 
+#include "BleTypes.h"
 #include "Command.h"
 #include "DeviceConfiguration.h"
 #include "Report.h"
@@ -67,6 +68,25 @@ public:
     // RFID reader reads a new tag, for views where consumesRfidEvents() is
     // true. `value` is the tag's UID (hex string).
     virtual void onRfidTagRead(const String& value) { (void)value; }
+
+    // BLEView-style views that consume nearby-device scan results from the
+    // node's on-device BLE radio (see BleScanner.h) return true here so
+    // ViewManager::notifyBleXxx() knows to route scan events to them,
+    // regardless of which view is currently focused - like RFID tag reads,
+    // these come from a physical hardware source independent of the
+    // carousel, not an inbound MQTT Command. Unlike RFIDView, BLEView is a
+    // normal (non-alert) carousel entry, so receiving these events never
+    // takes over the display.
+    virtual bool consumesBleEvents() const { return false; }
+
+    // A previously-unseen nearby BLE device started advertising.
+    virtual void onBleDeviceDiscovered(const BleDeviceInfo& device) { (void)device; }
+    // A previously-seen nearby BLE device hasn't been heard from recently
+    // enough (see BleScanner::kDeviceTimeoutMs) and is considered gone.
+    virtual void onBleDeviceLost(const String& address) { (void)address; }
+    // Fired for every BLE advertisement received (not just the first time a
+    // device is seen), so views can forward its raw contents verbatim.
+    virtual void onBleAdvertisement(const BleAdvertisement& advertisement) { (void)advertisement; }
 
     // Polled by the ViewManager once per frame while this view is focused;
     // returning true asks the ViewManager to return to the home carousel

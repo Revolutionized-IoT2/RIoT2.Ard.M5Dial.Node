@@ -258,6 +258,24 @@ and media-remote widgets):
   not by an inbound Command; it displays the read tag's UID, confirms with a beep
   (`Buzzer::confirm()`) on entry, publishes a `Report` for the tag, and auto-dismisses after a
   short timeout exactly like `NotificationView`.
+- **BLEView** — a normal (non-alert) carousel entry that lists nearby BLE advertisers detected by
+  the node's own BLE radio ([include/BleScanner.h](include/BleScanner.h) /
+  [src/BleScanner.cpp](src/BleScanner.cpp)), which wraps the ESP32 Arduino core's bundled
+  Bluedroid `BLEDevice.h` API (no extra `lib_deps` needed) with a continuous, non-blocking,
+  self-re-arming scan cycle and a mutex-guarded pending-event queue so BLE-stack-task callbacks
+  never touch shared state directly — only `BleScanner::loop()` (called from the main `loop()`)
+  drains it. Like `RFIDView`, scan events come from a physical hardware source independent of the
+  carousel and are routed via `IView::consumesBleEvents()` +
+  `ViewManager::notify{BleDeviceDiscovered,BleDeviceLost,BleAdvertisement}()`, and the on-device
+  radio is only powered on at all if the active configuration includes a BLE-consuming view
+  (`ViewManager::hasBleConsumer()`, checked in `main.cpp`) — but *unlike* `RFIDView`, receiving
+  these events never takes over the display. `BLEView` publishes a `Report` in three scenarios,
+  each resolved to a `reportTemplate` by matching its `address` field (`"deviceFound"`,
+  `"deviceLost"`, `"advertisement"`, falling back to positional order if `address` isn't set):
+  a newly-discovered device, a previously-seen device no longer present, and every raw
+  advertisement received (forwarded as-is). Report payloads embedding the advertised device
+  `name` (untrusted RF input) are built with `ArduinoJson`'s serializer rather than manual string
+  concatenation, so they're always valid, properly-escaped JSON.
 - **ClockView** — idle/screensaver view (time + maybe next event) shown after inactivity timeout
   or as `deviceConfigurations[0]`. Views doing ongoing background work while focused (e.g.
   `TimerView` actively counting down) can override `IView::keepsAwake()` to suppress this timeout,
@@ -284,6 +302,7 @@ color, and icon, forming a single design palette shared across the app:
 | View | Primary | Secondary | Icon |
 | --- | --- | --- | --- |
 | `AlertView` | `#b71c1c` | `#ffcdd2` | `Assets/icons/Alert.png` |
+| `BLEView` | `#263238` | `#cfd8dc` | `Assets/icons/BLE.png` |
 | `ButtonView` | `#1a237e` | `#c5cae9` | `Assets/icons/Button.png` |
 | `ClockView` | `#311b92` | `#d1c4e9` | `Assets/icons/Clock.png` |
 | `ColorSchemeView` | `#4a148c` | `#e1bee7` | `Assets/icons/ColorScheme.png` |

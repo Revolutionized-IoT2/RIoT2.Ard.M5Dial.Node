@@ -139,6 +139,18 @@
         { "id": "access-card-report", "type": "1", "name": "Access Card Reader", "address": "", "parameters": {} }
       ],
       "deviceParameters": { "title": "Access Card", "durationMs": "4000", "subHeader": "read on-device, auto-dismisses" }
+    },
+    {
+      "id": "view-ble",
+      "name": "Nearby Bluetooth",
+      "classFullName": "RIoT2.Ard.M5Dial.Node.BLEView",
+      "commandTemplates": [],
+      "reportTemplates": [
+        { "id": "ble-device-found-report", "type": "1", "name": "BLE Device Found", "address": "deviceFound", "parameters": {} },
+        { "id": "ble-device-lost-report", "type": "1", "name": "BLE Device Lost", "address": "deviceLost", "parameters": {} },
+        { "id": "ble-advertisement-report", "type": "1", "name": "BLE Advertisement", "address": "advertisement", "parameters": {} }
+      ],
+      "deviceParameters": { "header": "Nearby BLE" }
     }
   ]
 }
