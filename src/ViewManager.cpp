@@ -559,34 +559,50 @@ void ViewManager::renderCarousel(M5Canvas& canvas) {
             int titleSize;
             layoutFocusedTitle(canvas, entry.config.name, maxWidthFocused, titleLines, titleSize);
 
-            canvas.setTextDatum(middle_left);
-            canvas.setTextColor(titleColor);
-            canvas.setTextSize(titleSize);
-
-            int titleBaseY = rowY - 13;
-            int titleLineHeight = 8 * titleSize;
-            int lastTitleLineCenterY = titleBaseY;
-            if (titleLines.size() == 1) {
-                canvas.drawString(titleLines[0], textX, titleBaseY);
-            } else {
-                int half = titleLineHeight / 2 + 2;
-                canvas.drawString(titleLines[0], textX, titleBaseY - half);
-                canvas.drawString(titleLines[1], textX, titleBaseY + half);
-                lastTitleLineCenterY = titleBaseY + half;
-            }
-
             String subtitle = findParameter(entry.config.deviceParameters, "menuSubHeader", "");
             if (subtitle.length() == 0) {
                 subtitle = defaultSubtitleForClassFullName(entry.config.classFullName);
             }
+
+            // Vertically center the *whole* title(+subtitle) text block on
+            // rowY - the same Y the icon is centered on - rather than always
+            // drawing the title 13px above rowY regardless of whether a
+            // subtitle follows. That fixed offset only happened to look
+            // right for the specific 1-line-title+subtitle case it was
+            // tuned against; entries with no subtitle had their title drawn
+            // 13px too high (never actually centered on the icon), and
+            // 2-line titles had their icon centered 13px below the true
+            // block center. Computing the total block height up front and
+            // centering it on rowY keeps the icon aligned with the text
+            // block in every combination of title line count / subtitle
+            // presence.
+            constexpr int kTitleLineGap = 4;        // gap between two wrapped title lines
+            constexpr int kTitleSubtitleGap = 6;     // gap between title block and subtitle
+            constexpr int kSubtitleLineHeight = 8;   // subtitle always drawn at text size 1
+            int titleLineHeight = 8 * titleSize;
+            int titleBlockHeight =
+                titleLines.size() == 2 ? (titleLineHeight * 2 + kTitleLineGap) : titleLineHeight;
+            int totalHeight = titleBlockHeight;
             if (subtitle.length() > 0) {
-                // Compute the subtitle's Y from the *actual* bottom edge of
-                // the last title line (which varies with titleSize and
-                // 1-vs-2 lines) plus a fixed gap, rather than a hardcoded
-                // offset from rowY - otherwise the visual gap shrinks/grows
-                // depending on the chosen title font size/line count.
-                constexpr int kTitleSubtitleGap = 6;
-                constexpr int kSubtitleLineHeight = 8;  // subtitle always drawn at text size 1
+                totalHeight += kTitleSubtitleGap + kSubtitleLineHeight;
+            }
+            int titleBlockCenterY = rowY - totalHeight / 2 + titleBlockHeight / 2;
+
+            canvas.setTextDatum(middle_left);
+            canvas.setTextColor(titleColor);
+            canvas.setTextSize(titleSize);
+
+            int lastTitleLineCenterY = titleBlockCenterY;
+            if (titleLines.size() == 1) {
+                canvas.drawString(titleLines[0], textX, titleBlockCenterY);
+            } else {
+                int half = titleLineHeight / 2 + kTitleLineGap / 2;
+                canvas.drawString(titleLines[0], textX, titleBlockCenterY - half);
+                canvas.drawString(titleLines[1], textX, titleBlockCenterY + half);
+                lastTitleLineCenterY = titleBlockCenterY + half;
+            }
+
+            if (subtitle.length() > 0) {
                 int subtitleY =
                     lastTitleLineCenterY + titleLineHeight / 2 + kTitleSubtitleGap + kSubtitleLineHeight / 2;
                 uint16_t subtitleColor = canvas.color565(90, 90, 90);
