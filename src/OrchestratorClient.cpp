@@ -14,47 +14,6 @@ String buildConfigurationUrl(const String& apiBaseUrl, const String& nodeId) {
     return base + "api/Nodes/" + nodeId + "/configuration";
 }
 
-// Shared by deviceConfigurations (Views) and peripheralConfigurations (Grove
-// port peripherals) - both use an identical shape (id/name/classFullName/
-// commandTemplates/reportTemplates/deviceParameters), just resolved through
-// a different factory (ViewFactory vs PeripheralFactory) by the rest of the
-// app.
-DeviceConfiguration parseDeviceConfiguration(JsonObject deviceJson) {
-    DeviceConfiguration device;
-    device.id = deviceJson["id"] | "";
-    device.name = deviceJson["name"] | "";
-    device.classFullName = deviceJson["classFullName"] | "";
-
-    for (JsonObject cmdJson : deviceJson["commandTemplates"].as<JsonArray>()) {
-        CommandTemplate cmd;
-        cmd.id = cmdJson["id"] | "";
-        cmd.type = cmdJson["type"] | "";
-        cmd.name = cmdJson["name"] | "";
-        cmd.address = cmdJson["address"] | "";
-        cmd.valueType = cmdJson["valueType"] | 0;
-        cmd.model = cmdJson["model"] | false;
-        device.commandTemplates.push_back(cmd);
-    }
-
-    for (JsonObject reportJson : deviceJson["reportTemplates"].as<JsonArray>()) {
-        ReportTemplate report;
-        report.id = reportJson["id"] | "";
-        report.type = reportJson["type"] | "";
-        report.name = reportJson["name"] | "";
-        report.address = reportJson["address"] | "";
-        for (JsonPair kv : reportJson["parameters"].as<JsonObject>()) {
-            report.parameters.push_back({String(kv.key().c_str()), kv.value().as<String>()});
-        }
-        device.reportTemplates.push_back(report);
-    }
-
-    for (JsonPair kv : deviceJson["deviceParameters"].as<JsonObject>()) {
-        device.deviceParameters.push_back({String(kv.key().c_str()), kv.value().as<String>()});
-    }
-
-    return device;
-}
-
 }  // namespace
 
 // Out-of-line definition required pre-C++17 whenever a static constexpr
@@ -118,18 +77,46 @@ bool OrchestratorClient::parseConfiguration(const String& json, NodeConfiguratio
     out.name = doc["name"] | "";
     out.id = doc["id"] | "";
     out.deviceConfigurations.clear();
-    out.peripheralConfigurations.clear();
 
+    // Both on-screen Views and non-visual Grove-port peripherals (see
+    // IPeripheral/PeripheralManager) are entries in this same array,
+    // distinguished purely by classFullName - ViewManager and
+    // PeripheralManager each resolve/keep only the entries their own
+    // factory recognizes (see DeviceConfiguration.h).
     for (JsonObject deviceJson : doc["deviceConfigurations"].as<JsonArray>()) {
-        out.deviceConfigurations.push_back(parseDeviceConfiguration(deviceJson));
-    }
+        DeviceConfiguration device;
+        device.id = deviceJson["id"] | "";
+        device.name = deviceJson["name"] | "";
+        device.classFullName = deviceJson["classFullName"] | "";
 
-    // Grove-port peripherals (see IPeripheral/PeripheralManager) - an
-    // optional top-level array, same shape as deviceConfigurations. Missing
-    // entirely from older/unaware orchestrator responses is fine: iterating
-    // an absent/invalid JsonArray simply yields zero entries.
-    for (JsonObject peripheralJson : doc["peripheralConfigurations"].as<JsonArray>()) {
-        out.peripheralConfigurations.push_back(parseDeviceConfiguration(peripheralJson));
+        for (JsonObject cmdJson : deviceJson["commandTemplates"].as<JsonArray>()) {
+            CommandTemplate cmd;
+            cmd.id = cmdJson["id"] | "";
+            cmd.type = cmdJson["type"] | "";
+            cmd.name = cmdJson["name"] | "";
+            cmd.address = cmdJson["address"] | "";
+            cmd.valueType = cmdJson["valueType"] | 0;
+            cmd.model = cmdJson["model"] | false;
+            device.commandTemplates.push_back(cmd);
+        }
+
+        for (JsonObject reportJson : deviceJson["reportTemplates"].as<JsonArray>()) {
+            ReportTemplate report;
+            report.id = reportJson["id"] | "";
+            report.type = reportJson["type"] | "";
+            report.name = reportJson["name"] | "";
+            report.address = reportJson["address"] | "";
+            for (JsonPair kv : reportJson["parameters"].as<JsonObject>()) {
+                report.parameters.push_back({String(kv.key().c_str()), kv.value().as<String>()});
+            }
+            device.reportTemplates.push_back(report);
+        }
+
+        for (JsonPair kv : deviceJson["deviceParameters"].as<JsonObject>()) {
+            device.deviceParameters.push_back({String(kv.key().c_str()), kv.value().as<String>()});
+        }
+
+        out.deviceConfigurations.push_back(device);
     }
 
     return true;

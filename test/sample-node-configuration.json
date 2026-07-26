@@ -156,9 +156,7 @@
         }
         ],
       "deviceParameters": { "header": "Nearby BLE" }
-    }
-  ],
-  "peripheralConfigurations": [
+    },
     {
       "id": "grove-doorbell-button",
       "name": "Doorbell Button",

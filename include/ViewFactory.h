@@ -22,6 +22,11 @@ public:
 
     void registerView(const String& classFullName, Creator creator);
 
+    // True if a view is registered for classFullName - lets other systems
+    // (e.g. PeripheralManager) check ownership without constructing an
+    // instance just to test for one.
+    bool isRegistered(const String& classFullName) const;
+
     // Returns nullptr if no view is registered for classFullName.
     std::unique_ptr<IView> create(const String& classFullName) const;
 

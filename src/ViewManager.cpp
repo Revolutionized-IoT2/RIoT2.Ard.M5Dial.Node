@@ -3,6 +3,7 @@
 #include <cmath>
 
 #include "Icons.h"
+#include "PeripheralFactory.h"
 #include "ViewColors.h"
 #include "ViewFactory.h"
 
@@ -234,8 +235,14 @@ void ViewManager::rebuild(const NodeConfiguration& nodeConfiguration) {
     for (const auto& deviceConfig : nodeConfiguration.deviceConfigurations) {
         auto view = ViewFactory::instance().create(deviceConfig.classFullName);
         if (!view) {
-            Serial.printf("[ViewManager] No view registered for classFullName=%s (name=%s), skipping\n",
-                          deviceConfig.classFullName.c_str(), deviceConfig.name.c_str());
+            // Views and Grove-port peripherals (see PeripheralManager) share
+            // this same deviceConfigurations array, distinguished purely by
+            // classFullName - silently skip any entry PeripheralFactory
+            // owns instead of logging it as an unrecognized view.
+            if (!PeripheralFactory::instance().isRegistered(deviceConfig.classFullName)) {
+                Serial.printf("[ViewManager] No view registered for classFullName=%s (name=%s), skipping\n",
+                              deviceConfig.classFullName.c_str(), deviceConfig.name.c_str());
+            }
             continue;
         }
 

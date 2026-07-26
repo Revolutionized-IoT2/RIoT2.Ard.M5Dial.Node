@@ -9,6 +9,15 @@ void ViewFactory::registerView(const String& classFullName, Creator creator) {
     _creators.push_back({classFullName, creator});
 }
 
+bool ViewFactory::isRegistered(const String& classFullName) const {
+    for (const auto& entry : _creators) {
+        if (entry.first == classFullName) {
+            return true;
+        }
+    }
+    return false;
+}
+
 std::unique_ptr<IView> ViewFactory::create(const String& classFullName) const {
     for (const auto& entry : _creators) {
         if (entry.first == classFullName) {

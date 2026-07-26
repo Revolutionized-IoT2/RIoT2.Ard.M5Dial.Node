@@ -168,14 +168,15 @@ The M5Dial exposes two Grove (HY2.0-4P) ports for expansion — per the official
 | PORT.B | GND, 5V, G2, G1 |
 
 Simple peripherals wired to these ports (buttons, relays, PIR/reed sensors, LEDs, etc.) don't
-need a full-screen View — they're configured the same way as `deviceConfigurations` (an `id`,
-`classFullName`, `commandTemplates`, `reportTemplates`, `deviceParameters`), but in a separate,
-optional `peripheralConfigurations` array in the same orchestrator configuration response, and
-resolved through a parallel `PeripheralFactory`/`PeripheralManager` (see
+need a full-screen View — they're configured as regular entries in `deviceConfigurations`
+(the same `id`/`classFullName`/`commandTemplates`/`reportTemplates`/`deviceParameters` shape as
+any View), just resolved through a parallel `PeripheralFactory`/`PeripheralManager` (see
 [include/IPeripheral.h](include/IPeripheral.h), [include/PeripheralFactory.h](include/PeripheralFactory.h),
-[include/PeripheralManager.h](include/PeripheralManager.h)) instead of `ViewFactory`/`ViewManager`.
-Peripherals are polled every `loop()` iteration and receive inbound commands exactly like a View
-does, but have no rendering/touch/encoder hooks and never appear in the carousel.
+[include/PeripheralManager.h](include/PeripheralManager.h)) instead of `ViewFactory`/`ViewManager`,
+purely based on which factory recognizes the entry's `classFullName` — each manager silently
+skips entries the other one owns. Peripherals are polled every `loop()` iteration and receive
+inbound commands exactly like a View does, but have no rendering/touch/encoder hooks and never
+appear in the carousel.
 
 The built-in `RIoT2.Ard.M5Dial.Node.GpioPeripheral` ([include/GpioPeripheral.h](include/GpioPeripheral.h))
 drives up to 4 raw digital pins, addressed as `"A1"`/`"A2"` (PORT.A) or `"B1"`/`"B2"` (PORT.B) via
@@ -186,7 +187,7 @@ publishing a Report on every state change) if only a `reportTemplate` references
 `deviceParameters`: `"pullup"` (default `"true"`, use `INPUT_PULLUP` for input pins) and
 `"invert"` (default `"false"`, flips the logical sense of every pin on that peripheral entry —
 useful for active-low modules). See `test/sample-node-configuration.json`'s
-`peripheralConfigurations` for example button/relay entries.
+`GpioPeripheral` entries for example button/relay configurations.
 
 ## UI / View Architecture
 
@@ -418,7 +419,7 @@ new built-in view type, add its Primary/Secondary colors to
 - [x] Power management (dim/sleep display on inactivity, wake on touch/encoder/button).
 - [x] On-device diagnostics screen (Wi-Fi/MQTT status, signal strength, free heap).
 - [x] Buzzer feedback for confirm/error actions.
-- [x] Grove-port peripheral support (`peripheralConfigurations`, `PeripheralFactory`/
+- [x] Grove-port peripheral support (entries in `deviceConfigurations`, `PeripheralFactory`/
       `PeripheralManager`, built-in `GpioPeripheral` for PORT.A/PORT.B digital I/O).
 
 ## Conventions

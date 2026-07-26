@@ -9,6 +9,15 @@ void PeripheralFactory::registerPeripheral(const String& classFullName, Creator 
     _creators.push_back({classFullName, creator});
 }
 
+bool PeripheralFactory::isRegistered(const String& classFullName) const {
+    for (const auto& entry : _creators) {
+        if (entry.first == classFullName) {
+            return true;
+        }
+    }
+    return false;
+}
+
 std::unique_ptr<IPeripheral> PeripheralFactory::create(const String& classFullName) const {
     for (const auto& entry : _creators) {
         if (entry.first == classFullName) {

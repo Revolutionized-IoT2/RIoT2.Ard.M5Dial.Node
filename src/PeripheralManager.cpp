@@ -1,15 +1,24 @@
 #include "PeripheralManager.h"
 
 #include "PeripheralFactory.h"
+#include "ViewFactory.h"
 
 void PeripheralManager::rebuild(const NodeConfiguration& nodeConfiguration) {
     _entries.clear();
 
-    for (const auto& config : nodeConfiguration.peripheralConfigurations) {
+    // Views and peripherals share the same deviceConfigurations array,
+    // distinguished purely by classFullName - silently skip any entry
+    // ViewFactory owns (that's ViewManager's job) rather than logging it as
+    // an unrecognized peripheral.
+    for (const auto& config : nodeConfiguration.deviceConfigurations) {
         std::unique_ptr<IPeripheral> peripheral = PeripheralFactory::instance().create(config.classFullName);
         if (!peripheral) {
-            Serial.printf("[PeripheralManager] No peripheral registered for classFullName=%s (id=%s)\n",
-                          config.classFullName.c_str(), config.id.c_str());
+            if (!ViewFactory::instance().isRegistered(config.classFullName)) {
+                Serial.printf(
+                    "[PeripheralManager] classFullName=%s (id=%s) not registered as a View or a Peripheral, "
+                    "skipping\n",
+                    config.classFullName.c_str(), config.id.c_str());
+            }
             continue;
         }
 

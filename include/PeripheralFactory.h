@@ -21,6 +21,11 @@ public:
 
     void registerPeripheral(const String& classFullName, Creator creator);
 
+    // True if a peripheral is registered for classFullName - lets other
+    // systems (e.g. ViewManager) check ownership without constructing an
+    // instance just to test for one.
+    bool isRegistered(const String& classFullName) const;
+
     // Returns nullptr if no peripheral is registered for classFullName.
     std::unique_ptr<IPeripheral> create(const String& classFullName) const;
 

@@ -50,12 +50,11 @@ struct DeviceConfiguration {
 struct NodeConfiguration {
     String name;
     String id;
-    std::vector<DeviceConfiguration> deviceConfigurations;
 
-    // Grove-port peripherals (see IPeripheral/PeripheralManager) - parsed
-    // from the same JSON document as deviceConfigurations and configured
-    // identically (id/classFullName/commandTemplates/reportTemplates/
-    // deviceParameters), but resolved via PeripheralFactory instead of
-    // ViewFactory and never shown in the carousel.
-    std::vector<DeviceConfiguration> peripheralConfigurations;
+    // Both on-screen Views and non-visual Grove-port peripherals (see
+    // IPeripheral/PeripheralManager) live in this same list, distinguished
+    // purely by classFullName: ViewManager resolves entries via
+    // ViewFactory, PeripheralManager resolves entries via PeripheralFactory
+    // - each manager silently skips entries the other one owns.
+    std::vector<DeviceConfiguration> deviceConfigurations;
 };
