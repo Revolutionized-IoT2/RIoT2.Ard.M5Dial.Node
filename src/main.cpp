@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
+#include <ESP32Encoder.h>
 #include <M5Dial.h>
 #include <WiFi.h>
 #include <time.h>
@@ -66,6 +67,20 @@ long lastEncoderPosition = 0;
 // full detent's worth has been seen.
 constexpr int kEncoderCountsPerClick = 4;
 int encoderRemainder = 0;
+
+// M5Dial.Encoder (bundled M5Dial lib) decodes quadrature in software via the
+// PJRC Encoder library's pin-change ISRs. On fast bezel spins the edge rate
+// can outrun how quickly those ISRs get serviced (WiFi/BT stack activity,
+// flash access, rendering, etc. all momentarily hold off interrupts on this
+// single-core-busy ESP32-S3), so a transition is occasionally missed
+// entirely and that detent's rotation is silently lost ("skips a beat" -
+// the menu doesn't move for that click). ESP32's PCNT peripheral counts
+// quadrature pulses in dedicated hardware with no CPU/ISR involvement per
+// edge, so it can't drop counts under interrupt latency the way the
+// software decoder can. `dialEncoder` replaces `M5Dial.Encoder` for actual
+// position reads; M5Dial.begin() is still told enableEncoder=false so the
+// bundled PJRC decoder never attaches its own interrupts on the same pins.
+ESP32Encoder dialEncoder;
 
 uint8_t fullBrightness = 128;
 bool dimmed = false;
@@ -308,7 +323,14 @@ void setup() {
     Serial.begin(115200);
 
     auto cfg = M5.config();
-    M5Dial.begin(cfg, true, false);
+    // enableEncoder=false: skip M5Dial's bundled software (PJRC) quadrature
+    // decoder entirely - dialEncoder (hardware PCNT, set up below) reads the
+    // same DIAL_ENCODER_PIN_A/B pins without its missed-edge-under-load risk.
+    M5Dial.begin(cfg, false, false);
+
+    ESP32Encoder::useInternalWeakPullResistors = puType::up;
+    dialEncoder.attachFullQuad(DIAL_ENCODER_PIN_A, DIAL_ENCODER_PIN_B);
+    dialEncoder.setCount(0);
 
     config = NodeConfigStore::load();
 
@@ -414,7 +436,7 @@ void loop() {
         diagnosticsHoldTriggered = false;
     }
 
-    long encoderPosition = M5Dial.Encoder.read();
+    long encoderPosition = dialEncoder.getCount();
     int rawEncoderDelta = static_cast<int>(encoderPosition - lastEncoderPosition);
     lastEncoderPosition = encoderPosition;
 
