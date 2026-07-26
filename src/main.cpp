@@ -379,7 +379,7 @@ void setup() {
     // silently fail to draw. The color-precision loss (8 levels of
     // red/green, 4 of blue) is an acceptable trade-off for view icons/text,
     // which are mostly solid vivid colors rather than smooth gradients.
-    canvas.setColorDepth(8);
+    // canvas.setColorDepth(8);
     canvas.createSprite(M5Dial.Display.width(), M5Dial.Display.height());
 
     wifi.begin(config.wifiSsid, config.wifiPassword);
