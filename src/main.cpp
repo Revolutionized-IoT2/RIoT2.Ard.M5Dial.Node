@@ -127,6 +127,20 @@ bool bleActive = false;
 bool pendingConfigFetch = false;
 String pendingApiBaseUrl;
 
+// See BUG (fixed #3) in repo notes: on this PSRAM-less ESP32-S3 module, a
+// full-screen 16bpp (default) off-screen sprite combined with WiFi + the
+// BLE/Bluedroid controller both active can starve free heap enough that
+// M5GFX's PNG decoder silently fails to draw icons. Only drop to 8bpp
+// (RGB332, ~half the sprite size) once BLE is actually active; otherwise
+// keep the default color depth for full color fidelity. Safe to call more
+// than once - createSprite() reallocates the backing buffer each time.
+void configureCanvasColorDepth() {
+    if (bleActive) {
+        canvas.setColorDepth(8);
+    }
+    canvas.createSprite(M5Dial.Display.width(), M5Dial.Display.height());
+}
+
 void showStatus(const String& line1, const String& line2 = "") {
     M5Dial.Display.fillScreen(BLACK);
     M5Dial.Display.setTextColor(WHITE);
@@ -295,6 +309,9 @@ void handleConfigurationUpdated(const NodeConfiguration& nodeConfiguration) {
         Serial.println("[BLE] Configuration includes a BLE-consuming view, enabling on-device BLE scanner");
         BleScanner::instance().begin();
         bleActive = true;
+        // Shrink the off-screen canvas to 8bpp now that BLE is active - see
+        // configureCanvasColorDepth().
+        configureCanvasColorDepth();
     }
 }
 
@@ -371,16 +388,15 @@ void setup() {
     fullBrightness = M5Dial.Display.getBrightness();
     lastActivityMs = millis();
 
-    // 8bpp (RGB332) instead of the default 16bpp (RGB565) halves the
-    // off-screen canvas from ~115KB to ~58KB. This M5Stamp-S3 module has no
-    // PSRAM, and with WiFi + the BLE controller (needed by BLEView) both
-    // active, free heap can drop to ~10KB - too little for M5GFX's PNG
-    // decoder (its zlib inflate window alone needs ~32KB), so icons
-    // silently fail to draw. The color-precision loss (8 levels of
-    // red/green, 4 of blue) is an acceptable trade-off for view icons/text,
-    // which are mostly solid vivid colors rather than smooth gradients.
-    // canvas.setColorDepth(8);
-    canvas.createSprite(M5Dial.Display.width(), M5Dial.Display.height());
+    // bleActive is always false this early (BLE only turns on once a
+    // config fetch reveals a BLE-consuming view - see
+    // handleConfigurationUpdated()), so this initially creates the sprite
+    // at the default color depth. If/when BLE activates,
+    // configureCanvasColorDepth() is called again to shrink to 8bpp
+    // (RGB332, ~58KB vs ~115KB at 16bpp) - see that function's comment for
+    // why (BUG fixed #3 in repo notes: low free heap makes M5GFX's PNG
+    // decoder silently fail to draw icons once BLE is active).
+    configureCanvasColorDepth();
 
     wifi.begin(config.wifiSsid, config.wifiPassword);
 
