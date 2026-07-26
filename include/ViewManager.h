@@ -79,13 +79,19 @@ public:
 
     // Routes an inbound command to whichever view owns a commandTemplate
     // matching commandId (regardless of which view is currently focused).
-    void onCommand(const String& commandId, const Command& command);
+    // Returns true if this caused an isAlert() view to take over the
+    // display (e.g. AlertView/NotificationView) - callers use this to know
+    // whether to wake the display from sleep/dim, since such a takeover
+    // should always be visible rather than left on a blank/sleeping screen.
+    bool onCommand(const String& commandId, const Command& command);
 
     // Routes a tag read from the node's on-device RFID reader to every
     // entry with IView::consumesRfidEvents() (regardless of which view is
     // currently focused), taking over the display for it just like an
-    // isAlert() view does for an inbound command (see onCommand()).
-    void notifyRfidTagRead(const String& value);
+    // isAlert() view does for an inbound command (see onCommand()). Returns
+    // true if a takeover happened, so callers know whether to wake the
+    // display from sleep/dim.
+    bool notifyRfidTagRead(const String& value);
 
     // Routes BLE scan events from BleScanner to every entry with
     // IView::consumesBleEvents() (regardless of which view is currently

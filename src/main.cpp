@@ -244,7 +244,12 @@ void handleCommand(const String& topic, const String& payload) {
     }
 
     Command command{id, doc["value"]};
-    viewManager.onCommand(command.id, command);
+    if (viewManager.onCommand(command.id, command)) {
+        // An isAlert() view (AlertView/NotificationView) just took over the
+        // display - always make sure it's actually visible rather than
+        // left on a dimmed/sleeping screen.
+        wakeDisplay();
+    }
 }
 
 void handleReport(const Report& report) {
@@ -354,7 +359,11 @@ void pollRfid() {
     lastRfidReadMs = now;
 
     Serial.printf("[RFID] Tag read: %s\n", uid.c_str());
-    viewManager.notifyRfidTagRead(uid);
+    if (viewManager.notifyRfidTagRead(uid)) {
+        // RFIDView just took over the display - make sure it's actually
+        // visible rather than left on a dimmed/sleeping screen.
+        wakeDisplay();
+    }
 }
 
 }  // namespace

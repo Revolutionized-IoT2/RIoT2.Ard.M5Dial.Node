@@ -399,7 +399,7 @@ void ViewManager::onTouch(int x, int y) {
 }
 
 
-void ViewManager::onCommand(const String& commandId, const Command& command) {
+bool ViewManager::onCommand(const String& commandId, const Command& command) {
     for (size_t i = 0; i < _entries.size(); ++i) {
         Entry& entry = _entries[i];
         for (const auto& cmdTemplate : entry.config.commandTemplates) {
@@ -414,12 +414,14 @@ void ViewManager::onCommand(const String& commandId, const Command& command) {
                     enterFocused(i);
                     _idle = false;
                     _lastInputMs = millis();
+                    return true;
                 }
-                return;
+                return false;
             }
         }
     }
     Serial.printf("[ViewManager] No view owns commandTemplate id=%s\n", commandId.c_str());
+    return false;
 }
 
 bool ViewManager::hasRfidConsumer() const {
@@ -431,7 +433,7 @@ bool ViewManager::hasRfidConsumer() const {
     return false;
 }
 
-void ViewManager::notifyRfidTagRead(const String& value) {
+bool ViewManager::notifyRfidTagRead(const String& value) {
     for (size_t i = 0; i < _entries.size(); ++i) {
         Entry& entry = _entries[i];
         if (!entry.view->consumesRfidEvents()) {
@@ -447,8 +449,10 @@ void ViewManager::notifyRfidTagRead(const String& value) {
             enterFocused(i);
             _idle = false;
             _lastInputMs = millis();
+            return true;
         }
     }
+    return false;
 }
 
 bool ViewManager::hasBleConsumer() const {
