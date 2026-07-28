@@ -84,7 +84,7 @@ void SceneSelectorView::render(M5Canvas& canvas) {
 namespace {
 struct SceneSelectorViewRegistrar {
     SceneSelectorViewRegistrar() {
-        ViewFactory::instance().registerView("RIoT2.Ard.M5Dial.Node.SceneSelectorView",
+        ViewFactory::instance().registerCreator("RIoT2.Ard.M5Dial.Node.SceneSelectorView",
                                               []() { return std::make_unique<SceneSelectorView>(); });
     }
 } sceneSelectorViewRegistrar;

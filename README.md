@@ -5,19 +5,27 @@ in the [RIoT2](../RIoT2.Core) ecosystem. It connects to Wi-Fi and MQTT, announce
 RIoT2 Orchestrator, downloads its device configuration, and renders a rotary-dial UI for viewing
 and controlling remote devices (lights, scenes, sensors, etc.) via MQTT reports/commands.
 
-See [CLAUDE.md](CLAUDE.md) for the full architecture, MQTT contracts, and roadmap.
+See [CLAUDE.md](CLAUDE.md) for the full architecture, MQTT contracts, and roadmap. Most of that
+connectivity/protocol logic (Wi-Fi, MQTT, provisioning, orchestrator handshake, OTA, peripherals,
+BLE scanning) actually lives in the sibling [RIoT2.Ard.Shared](../RIoT2.Ard.Shared) library, shared
+with [RIoT2.Ard.M5Core2.Node](../RIoT2.Ard.M5Core2.Node) — this project itself only implements the
+M5Dial-specific rotary-dial UI, encoder/button input, and buzzer feedback on top of it.
 
 ## Prerequisites
 
 - [PlatformIO](https://platformio.org/) — either the [VS Code extension](https://platformio.org/install/ide?install=vscode)
   or the standalone `pio` CLI.
 - A USB-C cable and an [M5Stack M5Dial](https://docs.m5stack.com/en/core/M5Dial) device.
+- The sibling [RIoT2.Ard.Shared](../RIoT2.Ard.Shared) directory checked out alongside this one
+  (referenced via `lib_extra_dirs = ../RIoT2.Ard.Shared` in [platformio.ini](platformio.ini) —
+  no separate build step needed, PlatformIO compiles it as part of this project's build).
 - (Windows) USB-serial drivers for the M5Dial's USB-to-UART chip if your OS doesn't detect the
   device automatically — see M5Stack's [driver download page](https://docs.m5stack.com/en/download).
 
 No manual library installation is required — PlatformIO resolves all dependencies
-(`m5stack/M5Dial`, `m5stack/M5Unified`, `PubSubClient`, `ArduinoJson`, plus core-bundled ESP32
-libraries) from [platformio.ini](platformio.ini) on first build.
+(`m5stack/M5Dial`, `m5stack/M5Unified`, `PubSubClient`, `ArduinoJson`, `NimBLE-Arduino`,
+`ESP32Encoder`, plus core-bundled ESP32 libraries) from [platformio.ini](platformio.ini) on first
+build.
 
 ## Build
 
@@ -73,6 +81,10 @@ reset), the M5Dial starts its own Wi-Fi access point and a captive-portal web fo
    - **WifiSsid** / **WifiPassword** — your home/office Wi-Fi credentials.
    - **MqttServerUrl** — address of your MQTT broker.
    - **MqttUsername** / **MqttPassword** — MQTT broker credentials (if required).
+   - **Use TLS for MQTT** — checkbox; connects over `WiFiClientSecure` on port 8883 instead of
+     plaintext when checked.
+   - **Enable vibration feedback** — checkbox, checked by default; present on every RIoT2 node
+     regardless of hardware, but harmless/unused here since the M5Dial has no vibration motor.
 4. Submit the form. The device saves the configuration to flash (NVS) and restarts into normal
    operation, connecting to your Wi-Fi and MQTT broker and then to the RIoT2 Orchestrator.
 

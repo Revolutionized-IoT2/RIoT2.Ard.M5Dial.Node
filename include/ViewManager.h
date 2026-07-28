@@ -6,10 +6,11 @@
 #include <memory>
 #include <vector>
 
-#include "BleTypes.h"
+#include <riot2/BleTypes.h>
+#include <riot2/Command.h>
+#include <riot2/DeviceConfiguration.h>
+
 #include "ClockView.h"
-#include "Command.h"
-#include "DeviceConfiguration.h"
 #include "IView.h"
 
 // Drives the on-device home carousel built from the orchestrator's

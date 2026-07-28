@@ -185,7 +185,7 @@ void TimerView::render(M5Canvas& canvas) {
 namespace {
 struct TimerViewRegistrar {
     TimerViewRegistrar() {
-        ViewFactory::instance().registerView("RIoT2.Ard.M5Dial.Node.TimerView",
+        ViewFactory::instance().registerCreator("RIoT2.Ard.M5Dial.Node.TimerView",
                                               []() { return std::make_unique<TimerView>(); });
     }
 } timerViewRegistrar;

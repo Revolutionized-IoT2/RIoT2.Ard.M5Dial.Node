@@ -5,10 +5,10 @@
 
 #include <functional>
 
-#include "BleTypes.h"
-#include "Command.h"
-#include "DeviceConfiguration.h"
-#include "Report.h"
+#include <riot2/BleTypes.h>
+#include <riot2/Command.h>
+#include <riot2/DeviceConfiguration.h>
+#include <riot2/Report.h>
 
 // Common interface every on-device View implements. The ViewManager carousel
 // owns lifecycle/input routing; concrete views (Phase 5) only need to

@@ -320,7 +320,7 @@ void ColorSchemeView::render(M5Canvas& canvas) {
 namespace {
 struct ColorSchemeViewRegistrar {
     ColorSchemeViewRegistrar() {
-        ViewFactory::instance().registerView("RIoT2.Ard.M5Dial.Node.ColorSchemeView",
+        ViewFactory::instance().registerCreator("RIoT2.Ard.M5Dial.Node.ColorSchemeView",
                                               []() { return std::make_unique<ColorSchemeView>(); });
     }
 } colorSchemeViewRegistrar;

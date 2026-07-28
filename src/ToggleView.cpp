@@ -123,7 +123,7 @@ void ToggleView::render(M5Canvas& canvas) {
 namespace {
 struct ToggleViewRegistrar {
     ToggleViewRegistrar() {
-        ViewFactory::instance().registerView("RIoT2.Ard.M5Dial.Node.ToggleView",
+        ViewFactory::instance().registerCreator("RIoT2.Ard.M5Dial.Node.ToggleView",
                                               []() { return std::make_unique<ToggleView>(); });
     }
 } toggleViewRegistrar;

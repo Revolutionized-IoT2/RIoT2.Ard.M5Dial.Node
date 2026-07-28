@@ -95,7 +95,7 @@ void ValueView::render(M5Canvas& canvas) {
 namespace {
 struct ValueViewRegistrar {
     ValueViewRegistrar() {
-        ViewFactory::instance().registerView("RIoT2.Ard.M5Dial.Node.ValueView",
+        ViewFactory::instance().registerCreator("RIoT2.Ard.M5Dial.Node.ValueView",
                                               []() { return std::make_unique<ValueView>(); });
     }
 } valueViewRegistrar;

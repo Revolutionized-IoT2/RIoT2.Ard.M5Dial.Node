@@ -4,7 +4,8 @@
 
 #include <vector>
 
-#include "BleTypes.h"
+#include <riot2/BleTypes.h>
+
 #include "IView.h"
 
 // Read-only carousel view that lists nearby BLE advertisers discovered by

@@ -5,18 +5,25 @@
 #include <WiFi.h>
 #include <time.h>
 
-#include "BleScanner.h"
+#include <memory>
+
+#include <riot2/BleScanner.h>
+#include <riot2/Command.h>
+#include <riot2/GpioPeripheral.h>
+#include <riot2/MqttConnection.h>
+#include <riot2/NodeConfig.h>
+#include <riot2/OrchestratorClient.h>
+#include <riot2/OtaUpdater.h>
+#include <riot2/PeripheralFactory.h>
+#include <riot2/PeripheralManager.h>
+#include <riot2/ProvisioningPortal.h>
+#include <riot2/Report.h>
+#include <riot2/WifiConnection.h>
+
 #include "Buzzer.h"
-#include "Command.h"
-#include "MqttConnection.h"
-#include "NodeConfig.h"
-#include "OrchestratorClient.h"
-#include "OtaUpdater.h"
-#include "PeripheralManager.h"
-#include "ProvisioningPortal.h"
-#include "Report.h"
+#include "Manifest.h"
+#include "ViewFactory.h"
 #include "ViewManager.h"
-#include "WifiConnection.h"
 
 namespace {
 
@@ -40,6 +47,10 @@ constexpr uint8_t kDimBrightness = 15;
 // part of RIoT2.Core's Command contract) that triggers an OTA update instead
 // of being routed to a view: { "id": "system.ota", "value": "<firmware url>" }.
 const char* const kOtaCommandId = "system.ota";
+
+// M5Dial's Grove PORT.A / PORT.B pin table (GpioPeripheral itself is
+// board-agnostic - see riot2/GpioPeripheral.h).
+constexpr GpioPinMap kM5DialGroveMap{13, 15, 2, 1};
 
 enum class AppMode { Provisioning, Normal };
 
@@ -304,7 +315,8 @@ void handleConfigurationUpdated(const NodeConfiguration& nodeConfiguration) {
                       static_cast<unsigned>(device.reportTemplates.size()));
     }
     viewManager.rebuild(nodeConfiguration);
-    peripheralManager.rebuild(nodeConfiguration);
+    peripheralManager.rebuild(nodeConfiguration,
+                              [](const String& classFullName) { return ViewFactory::instance().isRegistered(classFullName); });
 
     // Only power up the on-device RFID reader if this configuration actually
     // has a view that wants tag reads (e.g. RFIDView) - it stays off
@@ -380,6 +392,9 @@ void pollRfid() {
 void setup() {
     Serial.begin(115200);
 
+    PeripheralFactory::instance().registerCreator("RIoT2.Ard.M5Dial.Node.GpioPeripheral",
+                                                   [] { return std::make_unique<GpioPeripheral>(kM5DialGroveMap); });
+
     auto cfg = M5.config();
     // enableEncoder=false: skip M5Dial's bundled software (PJRC) quadrature
     // decoder entirely - dialEncoder (hardware PCNT, set up below) reads the
@@ -417,16 +432,25 @@ void setup() {
     // decoder silently fail to draw icons once BLE is active).
     configureCanvasColorDepth();
 
+    // Callbacks must be wired before loadCached() below, so a cache hit
+    // rebuilds the real views/reports wiring immediately instead of firing
+    // into an unset std::function.
+    viewManager.onReport(handleReport);
+    peripheralManager.onReport(handleReport);
+    orchestratorClient.onConfigurationUpdated(handleConfigurationUpdated);
+
+    // Rebuilds the UI from the last-known configuration (if any) before
+    // Wi-Fi/MQTT/the orchestrator are even reachable - see
+    // OrchestratorClient::loadCached(). A live fetch (once the orchestrator
+    // re-announce handshake completes) will rebuild again with fresh data.
+    orchestratorClient.loadCached();
+
     wifi.begin(config.wifiSsid, config.wifiPassword);
 
     // SNTP sync so Report.timeStamp is a real Unix epoch; opportunistic, runs
     // once Wi-Fi comes up. Reports published before the first sync completes
     // will carry a small/incorrect timestamp - acceptable for now.
     configTime(0, 0, "pool.ntp.org", "time.nist.gov");
-
-    viewManager.onReport(handleReport);
-    peripheralManager.onReport(handleReport);
-    orchestratorClient.onConfigurationUpdated(handleConfigurationUpdated);
 
     BleScanner::instance().onDeviceDiscovered(
         [](const BleDeviceInfo& device) { viewManager.notifyBleDeviceDiscovered(device); });
@@ -437,6 +461,7 @@ void setup() {
     mqtt.onCommand(handleCommand);
     mqtt.onOrchestratorOnline(handleOrchestratorOnline);
     mqtt.onConfigurationMessage(handleConfigurationMessage);
+    mqtt.setManifestJson(Manifest::json);
     mqtt.begin(config);
 }
 

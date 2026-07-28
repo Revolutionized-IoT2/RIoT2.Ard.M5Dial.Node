@@ -128,7 +128,7 @@ void SliderView::render(M5Canvas& canvas) {
 namespace {
 struct SliderViewRegistrar {
     SliderViewRegistrar() {
-        ViewFactory::instance().registerView("RIoT2.Ard.M5Dial.Node.SliderView",
+        ViewFactory::instance().registerCreator("RIoT2.Ard.M5Dial.Node.SliderView",
                                               []() { return std::make_unique<SliderView>(); });
     }
 } sliderViewRegistrar;

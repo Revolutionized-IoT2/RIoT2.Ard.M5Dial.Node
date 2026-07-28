@@ -67,7 +67,7 @@ void ClockView::render(M5Canvas& canvas) {
 namespace {
 struct ClockViewRegistrar {
     ClockViewRegistrar() {
-        ViewFactory::instance().registerView("RIoT2.Ard.M5Dial.Node.ClockView",
+        ViewFactory::instance().registerCreator("RIoT2.Ard.M5Dial.Node.ClockView",
                                               []() { return std::make_unique<ClockView>(); });
     }
 } clockViewRegistrar;

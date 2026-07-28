@@ -180,7 +180,7 @@ void ButtonView::render(M5Canvas& canvas) {
 namespace {
 struct ButtonViewRegistrar {
     ButtonViewRegistrar() {
-        ViewFactory::instance().registerView("RIoT2.Ard.M5Dial.Node.ButtonView",
+        ViewFactory::instance().registerCreator("RIoT2.Ard.M5Dial.Node.ButtonView",
                                               []() { return std::make_unique<ButtonView>(); });
     }
 } buttonViewRegistrar;

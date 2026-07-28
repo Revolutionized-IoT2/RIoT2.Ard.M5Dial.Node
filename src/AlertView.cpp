@@ -113,7 +113,7 @@ void AlertView::render(M5Canvas& canvas) {
 namespace {
 struct AlertViewRegistrar {
     AlertViewRegistrar() {
-        ViewFactory::instance().registerView("RIoT2.Ard.M5Dial.Node.AlertView",
+        ViewFactory::instance().registerCreator("RIoT2.Ard.M5Dial.Node.AlertView",
                                               []() { return std::make_unique<AlertView>(); });
     }
 } alertViewRegistrar;

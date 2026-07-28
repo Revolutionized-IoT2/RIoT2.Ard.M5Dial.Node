@@ -2,8 +2,9 @@
 
 #include <cmath>
 
+#include <riot2/PeripheralFactory.h>
+
 #include "Icons.h"
-#include "PeripheralFactory.h"
 #include "ViewColors.h"
 #include "ViewFactory.h"
 

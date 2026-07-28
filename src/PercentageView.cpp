@@ -93,7 +93,7 @@ void PercentageView::render(M5Canvas& canvas) {
 namespace {
 struct PercentageViewRegistrar {
     PercentageViewRegistrar() {
-        ViewFactory::instance().registerView("RIoT2.Ard.M5Dial.Node.PercentageView",
+        ViewFactory::instance().registerCreator("RIoT2.Ard.M5Dial.Node.PercentageView",
                                               []() { return std::make_unique<PercentageView>(); });
     }
 } percentageViewRegistrar;

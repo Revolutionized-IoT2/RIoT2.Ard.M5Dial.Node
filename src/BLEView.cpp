@@ -227,7 +227,7 @@ void BLEView::render(M5Canvas& canvas) {
 namespace {
 struct BLEViewRegistrar {
     BLEViewRegistrar() {
-        ViewFactory::instance().registerView("RIoT2.Ard.M5Dial.Node.BLEView",
+        ViewFactory::instance().registerCreator("RIoT2.Ard.M5Dial.Node.BLEView",
                                               []() { return std::make_unique<BLEView>(); });
     }
 } bleViewRegistrar;

@@ -98,7 +98,7 @@ void RFIDView::render(M5Canvas& canvas) {
 namespace {
 struct RFIDViewRegistrar {
     RFIDViewRegistrar() {
-        ViewFactory::instance().registerView("RIoT2.Ard.M5Dial.Node.RFIDView",
+        ViewFactory::instance().registerCreator("RIoT2.Ard.M5Dial.Node.RFIDView",
                                               []() { return std::make_unique<RFIDView>(); });
     }
 } rfidViewRegistrar;

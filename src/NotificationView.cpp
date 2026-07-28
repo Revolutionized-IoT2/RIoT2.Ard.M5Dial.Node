@@ -137,7 +137,7 @@ void NotificationView::render(M5Canvas& canvas) {
 namespace {
 struct NotificationViewRegistrar {
     NotificationViewRegistrar() {
-        ViewFactory::instance().registerView("RIoT2.Ard.M5Dial.Node.NotificationView",
+        ViewFactory::instance().registerCreator("RIoT2.Ard.M5Dial.Node.NotificationView",
                                               []() { return std::make_unique<NotificationView>(); });
     }
 } notificationViewRegistrar;
