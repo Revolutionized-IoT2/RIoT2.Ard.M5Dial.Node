@@ -22,6 +22,7 @@
 
 #include "Buzzer.h"
 #include "Manifest.h"
+#include "ViewColors.h"
 #include "ViewFactory.h"
 #include "ViewManager.h"
 
@@ -42,6 +43,22 @@ constexpr unsigned long kDiagnosticsHoldMs = 1500;
 constexpr unsigned long kDimTimeoutMs = 15000;
 constexpr unsigned long kSleepTimeoutMs = 60000;
 constexpr uint8_t kDimBrightness = 15;
+
+// Diagnostics screen: touching and holding the on-screen shutdown button for
+// this long fully powers off the device (M5Dial.Power.powerOff(), a hardware
+// power-down - restart by pressing the physical power button, same as
+// unplugging and replugging). Lifting the finger before the hold completes,
+// or dragging it off the button, cancels the shutdown.
+constexpr unsigned long kShutdownHoldMs = 2000;
+constexpr int kShutdownButtonRadius = 20;
+constexpr int kShutdownRingInnerRadius = 24;
+constexpr int kShutdownRingOuterRadius = 30;
+// Generous touch target for this small round button - the round panel makes
+// precise hit-circles harder to land than on a square screen (see the
+// three-band touch reasoning for the carousel in CLAUDE.md).
+constexpr int kShutdownHitRadius = kShutdownRingOuterRadius + 10;
+const uint16_t kShutdownAccentColor = ViewColors::toRGB565(ViewColors::Alert);
+const uint16_t kShutdownTrackColor = ViewColors::toRGB565(ViewColors::AlertSecondary);
 
 // Reserved MQTT command id (RIoT2.Ard.M5Dial.Node-specific extension, not
 // part of RIoT2.Core's Command contract) that triggers an OTA update instead
@@ -73,6 +90,11 @@ bool diagnosticsHoldTriggered = false;
 unsigned long buttonPressStartMs = 0;
 bool showDiagnostics = false;
 long lastEncoderPosition = 0;
+
+// Tracks the on-screen shutdown button's hold-to-confirm gesture on the
+// diagnostics screen - see kShutdownHoldMs.
+bool shutdownHolding = false;
+unsigned long shutdownHoldStartMs = 0;
 
 // M5Dial's rotary encoder reports multiple raw quadrature counts per
 // physical click/detent (confirmed by observation: one click moved the
@@ -198,18 +220,48 @@ void updatePowerManagement() {
     }
 }
 
+// Center of the on-screen shutdown button on the diagnostics screen, in
+// display coordinates (shared by rendering and touch hit-testing).
+int shutdownButtonCx() {
+    return M5Dial.Display.width() / 2;
+}
+int shutdownButtonCy() {
+    return M5Dial.Display.height() - 50;
+}
+
+bool isNearShutdownButton(int x, int y) {
+    int dx = x - shutdownButtonCx();
+    int dy = y - shutdownButtonCy();
+    return (dx * dx + dy * dy) <= (kShutdownHitRadius * kShutdownHitRadius);
+}
+
+// Publishes the graceful-shutdown offline message (per CLAUDE.md's
+// "Graceful shutdown" lifecycle step) and fully powers off the device.
+// M5Dial.Power.powerOff() is a hardware power-down - the device is restarted
+// only by pressing the physical power button, not by any input this app
+// handles.
+void shutdownDevice() {
+    Serial.println("[Power] Shutdown confirmed from diagnostics screen");
+    Buzzer::error();
+    showStatus("Shutting down...", "Press power button to restart");
+    mqtt.publishOfflineAndDisconnect();
+    delay(300);
+    M5Dial.Power.powerOff();
+}
+
 void renderDiagnostics(M5Canvas& target) {
     target.fillScreen(BLACK);
     target.setTextColor(WHITE);
     target.setTextDatum(middle_center);
     target.setTextSize(2);
-    target.drawString("Diagnostics", target.width() / 2, 30);
+    target.drawString("Diagnostics", target.width() / 2, 20);
+    target.setTextSize(1);
+    target.drawString("hold button to close", target.width() / 2, 38);
 
     target.setTextDatum(middle_left);
-    target.setTextSize(1);
     int x = 20;
-    int y = 70;
-    const int lineHeight = 22;
+    int y = 56;
+    const int lineHeight = 16;
 
     target.drawString("Node: " + config.name, x, y);
     y += lineHeight;
@@ -226,10 +278,28 @@ void renderDiagnostics(M5Canvas& target) {
     target.drawString("Free heap: " + String(ESP.getFreeHeap() / 1024) + " KB", x, y);
     y += lineHeight;
     target.drawString("Uptime: " + String(millis() / 1000) + " s", x, y);
-    y += lineHeight;
+
+    int cx = shutdownButtonCx();
+    int cy = shutdownButtonCy();
+    float holdFraction = 0.f;
+    if (shutdownHolding) {
+        holdFraction = static_cast<float>(millis() - shutdownHoldStartMs) / static_cast<float>(kShutdownHoldMs);
+        if (holdFraction > 1.f) {
+            holdFraction = 1.f;
+        }
+    }
+
+    target.fillArc(cx, cy, kShutdownRingOuterRadius, kShutdownRingInnerRadius, 0, 360, kShutdownTrackColor);
+    if (holdFraction > 0.f) {
+        target.fillArc(cx, cy, kShutdownRingOuterRadius, kShutdownRingInnerRadius, 0, 360.0f * holdFraction,
+                       kShutdownAccentColor);
+    }
+    target.fillCircle(cx, cy, kShutdownButtonRadius, kShutdownAccentColor);
 
     target.setTextDatum(middle_center);
-    target.drawString("hold to close", target.width() / 2, target.height() - 20);
+    target.setTextColor(WHITE);
+    target.setTextSize(1);
+    target.drawString("hold 2s to power off", target.width() / 2, cy + kShutdownRingOuterRadius + 14);
 }
 
 void handleCommand(const String& topic, const String& payload) {
@@ -551,15 +621,15 @@ void loop() {
     }
 
     bool touched = false;
+    bool touchDown = false;
     int touchX = 0;
     int touchY = 0;
     if (M5Dial.Touch.getCount()) {
         auto detail = M5Dial.Touch.getDetail(0);
-        if (detail.wasPressed()) {
-            touched = true;
-            touchX = detail.x;
-            touchY = detail.y;
-        }
+        touchX = detail.x;
+        touchY = detail.y;
+        touchDown = detail.isPressed();
+        touched = detail.wasPressed();
     }
 
     bool hadInput = encoderClicks != 0 || buttonPressed || touched;
@@ -570,10 +640,22 @@ void loop() {
     updatePowerManagement();
 
     if (showDiagnostics) {
+        if (touchDown && isNearShutdownButton(touchX, touchY)) {
+            if (!shutdownHolding) {
+                shutdownHolding = true;
+                shutdownHoldStartMs = millis();
+            } else if (millis() - shutdownHoldStartMs >= kShutdownHoldMs) {
+                shutdownDevice();  // M5Dial.Power.powerOff() - never returns
+            }
+        } else {
+            shutdownHolding = false;
+        }
+
         renderDiagnostics(canvas);
         canvas.pushSprite(0, 0);
         return;
     }
+    shutdownHolding = false;
 
     if (viewManager.hasViews()) {
         if (hadInput) {
