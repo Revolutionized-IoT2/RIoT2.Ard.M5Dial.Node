@@ -223,12 +223,15 @@ void updatePowerManagement() {
 }
 
 // Center of the on-screen shutdown button on the diagnostics screen, in
-// display coordinates (shared by rendering and touch hit-testing).
+// display coordinates (shared by rendering and touch hit-testing). Kept
+// close enough to the display center that its hit-circle (kShutdownHitRadius)
+// stays fully inside the M5Dial's round visible area even offset to the
+// right side.
 int shutdownButtonCx() {
-    return M5Dial.Display.width() / 2;
+    return M5Dial.Display.width() - 55;
 }
 int shutdownButtonCy() {
-    return M5Dial.Display.height() - 50;
+    return M5Dial.Display.height() / 2 + 10;
 }
 
 bool isNearShutdownButton(int x, int y) {
@@ -267,6 +270,8 @@ void renderDiagnostics(M5Canvas& target) {
 
     target.drawString("Node: " + config.name, x, y);
     y += lineHeight;
+    target.drawString("ID: " + config.id, x, y);
+    y += lineHeight;
     target.drawString(String("WiFi: ") + (wifi.isConnected() ? "connected" : "connecting..."), x, y);
     y += lineHeight;
     if (wifi.isConnected()) {
@@ -301,7 +306,8 @@ void renderDiagnostics(M5Canvas& target) {
     target.setTextDatum(middle_center);
     target.setTextColor(WHITE);
     target.setTextSize(1);
-    target.drawString("hold 2s to power off", target.width() / 2, cy + kShutdownRingOuterRadius + 14);
+    target.drawString("hold 2s", cx, cy + kShutdownRingOuterRadius + 12);
+    target.drawString("to power off", cx, cy + kShutdownRingOuterRadius + 24);
 }
 
 void handleCommand(const String& topic, const String& payload) {
