@@ -76,7 +76,9 @@ NodeConfig config;
 WifiConnection wifi;
 MqttConnection mqtt;
 ProvisioningPortal provisioning;
-OrchestratorClient orchestratorClient;
+// enableCache=false: never persist/reuse a cached configuration - always
+// wait for a live fetch from the orchestrator (see OrchestratorClient.h).
+OrchestratorClient orchestratorClient{false};
 ViewManager viewManager;
 // Grove-port peripherals (PORT.A / PORT.B) - configured the same way as
 // Views but never shown in the carousel, see PeripheralManager.h.
@@ -502,18 +504,13 @@ void setup() {
     // decoder silently fail to draw icons once BLE is active).
     configureCanvasColorDepth();
 
-    // Callbacks must be wired before loadCached() below, so a cache hit
-    // rebuilds the real views/reports wiring immediately instead of firing
-    // into an unset std::function.
     viewManager.onReport(handleReport);
     peripheralManager.onReport(handleReport);
     orchestratorClient.onConfigurationUpdated(handleConfigurationUpdated);
 
-    // Rebuilds the UI from the last-known configuration (if any) before
-    // Wi-Fi/MQTT/the orchestrator are even reachable - see
-    // OrchestratorClient::loadCached(). A live fetch (once the orchestrator
-    // re-announce handshake completes) will rebuild again with fresh data.
-    orchestratorClient.loadCached();
+    // No loadCached() call - persistent configuration caching is disabled
+    // (see orchestratorClient's construction above), so the carousel stays
+    // empty until the orchestrator handshake delivers a live configuration.
 
     wifi.begin(config.wifiSsid, config.wifiPassword);
 
