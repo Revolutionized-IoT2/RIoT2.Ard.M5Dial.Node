@@ -2,6 +2,8 @@
 
 #include <memory>
 
+#include <riot2/Uuid.h>
+
 #include "Buzzer.h"
 #include "ViewColors.h"
 #include "ViewFactory.h"
@@ -82,10 +84,27 @@ void SceneSelectorView::render(M5Canvas& canvas) {
 }
 
 namespace {
+DeviceConfiguration buildSceneSelectorViewTemplate() {
+    DeviceConfiguration config;
+    config.id = riot2::newId();
+    config.name = "Scene Selector View";
+    config.classFullName = "RIoT2.Ard.M5Dial.Node.SceneSelectorView";
+
+    for (const char* sceneName : {"Movie Night", "Good Morning", "Good Night"}) {
+        ReportTemplate report;
+        report.id = riot2::newId();
+        report.type = "1";
+        report.name = sceneName;
+        config.reportTemplates.push_back(report);
+    }
+    return config;
+}
+
 struct SceneSelectorViewRegistrar {
     SceneSelectorViewRegistrar() {
         ViewFactory::instance().registerCreator("RIoT2.Ard.M5Dial.Node.SceneSelectorView",
-                                              []() { return std::make_unique<SceneSelectorView>(); });
+                                              []() { return std::make_unique<SceneSelectorView>(); },
+                                              buildSceneSelectorViewTemplate);
     }
 } sceneSelectorViewRegistrar;
 }  // namespace

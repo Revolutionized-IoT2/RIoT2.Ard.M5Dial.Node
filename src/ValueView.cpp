@@ -2,6 +2,8 @@
 
 #include <memory>
 
+#include <riot2/Uuid.h>
+
 #include "ViewColors.h"
 #include "ViewFactory.h"
 
@@ -9,6 +11,24 @@ namespace {
 constexpr size_t kMaxSlots = 4;
 const uint16_t kValueColor = ViewColors::toRGB565(ViewColors::Value);           // this view's assigned color
 const uint16_t kLabelColor = ViewColors::toRGB565(ViewColors::ValueSecondary);  // pale label accent
+
+DeviceConfiguration buildValueViewTemplate() {
+    DeviceConfiguration config;
+    config.id = riot2::newId();
+    config.name = "Value View";
+    config.classFullName = "RIoT2.Ard.M5Dial.Node.ValueView";
+    config.deviceParameters = {{"unit1", "\u00b0C"}, {"unit2", "%"}};
+
+    for (const char* label : {"Value 1", "Value 2"}) {
+        CommandTemplate cmd;
+        cmd.id = riot2::newId();
+        cmd.type = "2";
+        cmd.name = label;
+        cmd.valueType = 2;
+        config.commandTemplates.push_back(cmd);
+    }
+    return config;
+}
 }  // namespace
 
 void ValueView::begin(const DeviceConfiguration& config) {
@@ -96,7 +116,7 @@ namespace {
 struct ValueViewRegistrar {
     ValueViewRegistrar() {
         ViewFactory::instance().registerCreator("RIoT2.Ard.M5Dial.Node.ValueView",
-                                              []() { return std::make_unique<ValueView>(); });
+                                              []() { return std::make_unique<ValueView>(); }, buildValueViewTemplate);
     }
 } valueViewRegistrar;
 }  // namespace

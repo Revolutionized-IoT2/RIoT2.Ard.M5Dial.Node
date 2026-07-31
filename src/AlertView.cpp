@@ -2,6 +2,8 @@
 
 #include <memory>
 
+#include <riot2/Uuid.h>
+
 #include "Buzzer.h"
 #include "ViewColors.h"
 #include "ViewFactory.h"
@@ -45,6 +47,24 @@ bool extractSoundEnabled(const JsonVariantConst& value, bool fallback) {
         }
     }
     return fallback;
+}
+}  // namespace
+
+namespace {
+DeviceConfiguration buildAlertViewTemplate() {
+    DeviceConfiguration config;
+    config.id = riot2::newId();
+    config.name = "Alert View";
+    config.classFullName = "RIoT2.Ard.M5Dial.Node.AlertView";
+
+    CommandTemplate cmd;
+    cmd.id = riot2::newId();
+    cmd.type = "3";
+    cmd.name = "Alert";
+    cmd.address = "alert-1";
+    cmd.valueType = 3;  // Entity - value is { title, message, subHeader, soundEnabled }
+    config.commandTemplates.push_back(cmd);
+    return config;
 }
 }  // namespace
 
@@ -114,7 +134,7 @@ namespace {
 struct AlertViewRegistrar {
     AlertViewRegistrar() {
         ViewFactory::instance().registerCreator("RIoT2.Ard.M5Dial.Node.AlertView",
-                                              []() { return std::make_unique<AlertView>(); });
+                                              []() { return std::make_unique<AlertView>(); }, buildAlertViewTemplate);
     }
 } alertViewRegistrar;
 }  // namespace

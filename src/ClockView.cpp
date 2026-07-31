@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <time.h>
 
+#include <riot2/Uuid.h>
+
 #include "ViewColors.h"
 #include "ViewFactory.h"
 
@@ -65,10 +67,19 @@ void ClockView::render(M5Canvas& canvas) {
 }
 
 namespace {
+DeviceConfiguration buildClockViewTemplate() {
+    DeviceConfiguration config;
+    config.id = riot2::newId();
+    config.name = "Clock View";
+    config.classFullName = "RIoT2.Ard.M5Dial.Node.ClockView";
+    config.deviceParameters = {{"timezone", "EET-2EEST,M3.5.0/3,M10.5.0/4"}};
+    return config;
+}
+
 struct ClockViewRegistrar {
     ClockViewRegistrar() {
         ViewFactory::instance().registerCreator("RIoT2.Ard.M5Dial.Node.ClockView",
-                                              []() { return std::make_unique<ClockView>(); });
+                                              []() { return std::make_unique<ClockView>(); }, buildClockViewTemplate);
     }
 } clockViewRegistrar;
 }  // namespace

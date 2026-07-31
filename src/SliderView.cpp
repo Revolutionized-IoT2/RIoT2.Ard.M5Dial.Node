@@ -2,6 +2,8 @@
 
 #include <memory>
 
+#include <riot2/Uuid.h>
+
 #include "Buzzer.h"
 #include "ViewColors.h"
 #include "ViewFactory.h"
@@ -10,6 +12,30 @@ namespace {
 const uint16_t kTrackColor = ViewColors::toRGB565(ViewColors::SliderSecondary);  // pale track, per CLAUDE.md
 const uint16_t kValueColor = ViewColors::toRGB565(ViewColors::Slider);  // this view's assigned color
 const uint16_t kAdjustColor = ViewColors::toRGB565(ViewColors::lighten(ViewColors::Slider, 0.5f));  // brighter, on-theme
+
+DeviceConfiguration buildSliderViewTemplate() {
+    DeviceConfiguration config;
+    config.id = riot2::newId();
+    config.name = "Slider View";
+    config.classFullName = "RIoT2.Ard.M5Dial.Node.SliderView";
+    config.deviceParameters = {{"min", "0"}, {"max", "100"}, {"step", "1"}, {"unit", ""}};
+
+    CommandTemplate cmd;
+    cmd.id = riot2::newId();
+    cmd.type = "2";
+    cmd.name = "Slider";
+    cmd.address = "slider-1";
+    cmd.valueType = 2;
+    config.commandTemplates.push_back(cmd);
+
+    ReportTemplate report;
+    report.id = riot2::newId();
+    report.type = "2";
+    report.name = "Slider";
+    report.address = "slider-1";
+    config.reportTemplates.push_back(report);
+    return config;
+}
 }  // namespace
 
 void SliderView::begin(const DeviceConfiguration& config) {
@@ -129,7 +155,7 @@ namespace {
 struct SliderViewRegistrar {
     SliderViewRegistrar() {
         ViewFactory::instance().registerCreator("RIoT2.Ard.M5Dial.Node.SliderView",
-                                              []() { return std::make_unique<SliderView>(); });
+                                              []() { return std::make_unique<SliderView>(); }, buildSliderViewTemplate);
     }
 } sliderViewRegistrar;
 }  // namespace

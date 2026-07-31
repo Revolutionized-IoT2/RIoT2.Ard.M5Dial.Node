@@ -4,6 +4,8 @@
 
 #include <memory>
 
+#include <riot2/Uuid.h>
+
 #include "ViewColors.h"
 #include "ViewFactory.h"
 
@@ -225,10 +227,31 @@ void BLEView::render(M5Canvas& canvas) {
 }
 
 namespace {
+DeviceConfiguration buildBLEViewTemplate() {
+    DeviceConfiguration config;
+    config.id = riot2::newId();
+    config.name = "BLE View";
+    config.classFullName = "RIoT2.Ard.M5Dial.Node.BLEView";
+    config.deviceParameters = {{"header", "Nearby BLE"}};
+
+    for (const auto& entry :
+         {std::make_pair("deviceFound", "BLE Device Found"), std::make_pair("deviceLost", "BLE Device Lost"),
+          std::make_pair("advertisement", "BLE Advertisement")}) {
+        ReportTemplate report;
+        report.id = riot2::newId();
+        report.type = "1";
+        report.name = entry.second;
+        report.address = entry.first;
+        report.parameters = {{"allowedAddresses", ""}};
+        config.reportTemplates.push_back(report);
+    }
+    return config;
+}
+
 struct BLEViewRegistrar {
     BLEViewRegistrar() {
         ViewFactory::instance().registerCreator("RIoT2.Ard.M5Dial.Node.BLEView",
-                                              []() { return std::make_unique<BLEView>(); });
+                                              []() { return std::make_unique<BLEView>(); }, buildBLEViewTemplate);
     }
 } bleViewRegistrar;
 }  // namespace

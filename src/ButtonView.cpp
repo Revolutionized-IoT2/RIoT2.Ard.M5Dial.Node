@@ -3,6 +3,8 @@
 #include <memory>
 #include <vector>
 
+#include <riot2/Uuid.h>
+
 #include "Buzzer.h"
 #include "ViewColors.h"
 #include "ViewFactory.h"
@@ -178,10 +180,37 @@ void ButtonView::render(M5Canvas& canvas) {
 }
 
 namespace {
+DeviceConfiguration buildButtonViewTemplate() {
+    DeviceConfiguration config;
+    config.id = riot2::newId();
+    config.name = "Button View";
+    config.classFullName = "RIoT2.Ard.M5Dial.Node.ButtonView";
+    config.deviceParameters = {{"header", "Buttons"}, {"subHeader", "tap a button"}};
+
+    for (const char* address : {"btn-1", "btn-2"}) {
+        CommandTemplate cmd;
+        cmd.id = riot2::newId();
+        cmd.type = "0";
+        cmd.name = String("Button ") + address;
+        cmd.address = address;
+        cmd.valueType = 0;
+        config.commandTemplates.push_back(cmd);
+
+        ReportTemplate report;
+        report.id = riot2::newId();
+        report.type = "0";
+        report.name = String("Button ") + address;
+        report.address = address;
+        report.parameters = {{"icon", "bulb"}};
+        config.reportTemplates.push_back(report);
+    }
+    return config;
+}
+
 struct ButtonViewRegistrar {
     ButtonViewRegistrar() {
         ViewFactory::instance().registerCreator("RIoT2.Ard.M5Dial.Node.ButtonView",
-                                              []() { return std::make_unique<ButtonView>(); });
+                                              []() { return std::make_unique<ButtonView>(); }, buildButtonViewTemplate);
     }
 } buttonViewRegistrar;
 }  // namespace

@@ -2,6 +2,8 @@
 
 #include <memory>
 
+#include <riot2/Uuid.h>
+
 #include "Buzzer.h"
 #include "ViewColors.h"
 #include "ViewFactory.h"
@@ -121,10 +123,33 @@ void ToggleView::render(M5Canvas& canvas) {
 }
 
 namespace {
+DeviceConfiguration buildToggleViewTemplate() {
+    DeviceConfiguration config;
+    config.id = riot2::newId();
+    config.name = "Toggle View";
+    config.classFullName = "RIoT2.Ard.M5Dial.Node.ToggleView";
+
+    CommandTemplate cmd;
+    cmd.id = riot2::newId();
+    cmd.type = "0";
+    cmd.name = "Toggle";
+    cmd.address = "relay-1";
+    cmd.valueType = 0;
+    config.commandTemplates.push_back(cmd);
+
+    ReportTemplate report;
+    report.id = riot2::newId();
+    report.type = "0";
+    report.name = "Toggle";
+    report.address = "relay-1";
+    config.reportTemplates.push_back(report);
+    return config;
+}
+
 struct ToggleViewRegistrar {
     ToggleViewRegistrar() {
         ViewFactory::instance().registerCreator("RIoT2.Ard.M5Dial.Node.ToggleView",
-                                              []() { return std::make_unique<ToggleView>(); });
+                                              []() { return std::make_unique<ToggleView>(); }, buildToggleViewTemplate);
     }
 } toggleViewRegistrar;
 }  // namespace

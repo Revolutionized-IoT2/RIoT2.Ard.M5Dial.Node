@@ -2,6 +2,8 @@
 
 #include <memory>
 
+#include <riot2/Uuid.h>
+
 #include "Buzzer.h"
 #include "ViewColors.h"
 #include "ViewFactory.h"
@@ -10,6 +12,21 @@ namespace {
 const uint16_t kRFIDColor = ViewColors::toRGB565(ViewColors::RFID);            // this view's assigned color
 const uint16_t kSecondaryColor = ViewColors::toRGB565(ViewColors::RFIDSecondary);  // pale accent for secondary text
 constexpr uint16_t kBackground = 0x1082;                                       // near-black blue-grey
+
+DeviceConfiguration buildRFIDViewTemplate() {
+    DeviceConfiguration config;
+    config.id = riot2::newId();
+    config.name = "RFID View";
+    config.classFullName = "RIoT2.Ard.M5Dial.Node.RFIDView";
+    config.deviceParameters = {{"title", "RFID Tag"}, {"durationMs", "4000"}, {"subHeader", "scan a tag"}};
+
+    ReportTemplate report;
+    report.id = riot2::newId();
+    report.type = "1";
+    report.name = "RFID Tag";
+    config.reportTemplates.push_back(report);
+    return config;
+}
 }  // namespace
 
 void RFIDView::begin(const DeviceConfiguration& config) {
@@ -99,7 +116,7 @@ namespace {
 struct RFIDViewRegistrar {
     RFIDViewRegistrar() {
         ViewFactory::instance().registerCreator("RIoT2.Ard.M5Dial.Node.RFIDView",
-                                              []() { return std::make_unique<RFIDView>(); });
+                                              []() { return std::make_unique<RFIDView>(); }, buildRFIDViewTemplate);
     }
 } rfidViewRegistrar;
 }  // namespace

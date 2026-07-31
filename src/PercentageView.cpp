@@ -2,6 +2,8 @@
 
 #include <memory>
 
+#include <riot2/Uuid.h>
+
 #include "Buzzer.h"
 #include "ViewColors.h"
 #include "ViewFactory.h"
@@ -91,10 +93,34 @@ void PercentageView::render(M5Canvas& canvas) {
 }
 
 namespace {
+DeviceConfiguration buildPercentageViewTemplate() {
+    DeviceConfiguration config;
+    config.id = riot2::newId();
+    config.name = "Percentage View";
+    config.classFullName = "RIoT2.Ard.M5Dial.Node.PercentageView";
+
+    CommandTemplate cmd;
+    cmd.id = riot2::newId();
+    cmd.type = "2";
+    cmd.name = "Percentage";
+    cmd.address = "dimmer-1";
+    cmd.valueType = 2;
+    config.commandTemplates.push_back(cmd);
+
+    ReportTemplate report;
+    report.id = riot2::newId();
+    report.type = "2";
+    report.name = "Percentage";
+    report.address = "dimmer-1";
+    config.reportTemplates.push_back(report);
+    return config;
+}
+
 struct PercentageViewRegistrar {
     PercentageViewRegistrar() {
         ViewFactory::instance().registerCreator("RIoT2.Ard.M5Dial.Node.PercentageView",
-                                              []() { return std::make_unique<PercentageView>(); });
+                                              []() { return std::make_unique<PercentageView>(); },
+                                              buildPercentageViewTemplate);
     }
 } percentageViewRegistrar;
 }  // namespace

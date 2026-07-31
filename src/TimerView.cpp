@@ -2,6 +2,8 @@
 
 #include <memory>
 
+#include <riot2/Uuid.h>
+
 #include "Buzzer.h"
 #include "ViewColors.h"
 #include "ViewFactory.h"
@@ -11,6 +13,30 @@ const uint16_t kAccentColor = ViewColors::toRGB565(ViewColors::Timer);          
 const uint16_t kTrackColor = ViewColors::toRGB565(ViewColors::TimerSecondary);  // pale track
 constexpr int kRingCount = 6;                  // number of beeps in the "egg timer ring" pattern
 constexpr unsigned long kRingIntervalMs = 260;  // spacing between those beeps
+
+DeviceConfiguration buildTimerViewTemplate() {
+    DeviceConfiguration config;
+    config.id = riot2::newId();
+    config.name = "Timer View";
+    config.classFullName = "RIoT2.Ard.M5Dial.Node.TimerView";
+    config.deviceParameters = {{"defaultMinutes", "5"}, {"stepMinutes", "1"}, {"maxMinutes", "60"}};
+
+    CommandTemplate cmd;
+    cmd.id = riot2::newId();
+    cmd.type = "2";
+    cmd.name = "Timer";
+    cmd.address = "timer-1";
+    cmd.valueType = 0;
+    config.commandTemplates.push_back(cmd);
+
+    ReportTemplate report;
+    report.id = riot2::newId();
+    report.type = "2";
+    report.name = "Timer";
+    report.address = "timer-1";
+    config.reportTemplates.push_back(report);
+    return config;
+}
 }  // namespace
 
 void TimerView::begin(const DeviceConfiguration& config) {
@@ -186,7 +212,7 @@ namespace {
 struct TimerViewRegistrar {
     TimerViewRegistrar() {
         ViewFactory::instance().registerCreator("RIoT2.Ard.M5Dial.Node.TimerView",
-                                              []() { return std::make_unique<TimerView>(); });
+                                              []() { return std::make_unique<TimerView>(); }, buildTimerViewTemplate);
     }
 } timerViewRegistrar;
 }  // namespace
