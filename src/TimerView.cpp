@@ -63,6 +63,7 @@ void TimerView::begin(const DeviceConfiguration& config) {
 
     _phase = Phase::Setting;
     _totalSeconds = 0;
+    _ringsRemaining = 0;
 }
 
 void TimerView::onTouch(int x, int y) {
@@ -120,21 +121,39 @@ void TimerView::start() {
 
 void TimerView::cancel() {
     _phase = Phase::Setting;
+    _ringsRemaining = 0;
     Buzzer::tap();
 }
 
 void TimerView::finish() {
     _phase = Phase::Done;
     if (_beepOnComplete) {
-        // First beep fires right away from render(); the rest follow at
-        // kRingIntervalMs apart without blocking the render loop.
+        // loop() emits the first beep immediately, then spaces subsequent beeps.
         _ringsRemaining = kRingCount;
-        _nextRingMs = millis();
     } else {
         Buzzer::confirm();
     }
     if (_reportId.length() > 0) {
         publishReport(Report{_reportId, "0"});
+    }
+}
+
+int TimerView::remainingSeconds() const {
+    unsigned long elapsedSeconds = (millis() - _startMs) / 1000;
+    return elapsedSeconds >= static_cast<unsigned long>(_totalSeconds)
+               ? 0
+               : _totalSeconds - static_cast<int>(elapsedSeconds);
+}
+
+void TimerView::loop() {
+    if (_phase == Phase::Running && remainingSeconds() == 0) {
+        finish();
+    }
+    if (_phase == Phase::Done && _ringsRemaining > 0 &&
+        (_ringsRemaining == kRingCount || millis() - _lastRingMs >= kRingIntervalMs)) {
+        Buzzer::ring();
+        --_ringsRemaining;
+        _lastRingMs = millis();
     }
 }
 
@@ -145,12 +164,7 @@ void TimerView::render(M5Canvas& canvas) {
     int cy = canvas.height() / 2;
 
     if (_phase == Phase::Running) {
-        long elapsedSeconds = static_cast<long>(millis() - _startMs) / 1000;
-        int remaining = static_cast<int>(_totalSeconds - elapsedSeconds);
-        if (remaining <= 0) {
-            remaining = 0;
-            finish();  // transitions to Phase::Done and publishes the "0" completion report
-        }
+        int remaining = remainingSeconds();
 
         int outerR = (cx < cy ? cx : cy) - 10;
         int innerR = outerR - 20;
@@ -177,12 +191,6 @@ void TimerView::render(M5Canvas& canvas) {
     }
 
     if (_phase == Phase::Done) {
-        if (_ringsRemaining > 0 && millis() >= _nextRingMs) {
-            Buzzer::ring();
-            _ringsRemaining--;
-            _nextRingMs = millis() + kRingIntervalMs;
-        }
-
         canvas.fillScreen(kAccentColor);
         canvas.setTextDatum(middle_center);
         canvas.setTextColor(WHITE, kAccentColor);

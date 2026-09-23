@@ -27,6 +27,9 @@ public:
     virtual void onEnter() {}
     virtual void onExit() {}
 
+    // Main-loop work independent of focus, popups, diagnostics and rendering.
+    virtual void loop() {}
+
     // Input handling while this view is focused. The ViewManager forwards
     // encoder deltas here only while isInteracting() returns true; otherwise
     // encoder rotation navigates the carousel instead.
@@ -39,13 +42,9 @@ public:
     // using the encoder to move between carousel items.
     virtual bool isInteracting() const { return false; }
 
-    // Whether this view is doing ongoing background work that needs to keep
-    // rendering (e.g. TimerView actively counting down) even without new
-    // touch/encoder/button input. While this returns true and the view is
-    // focused, the ViewManager suppresses its idle/ClockView timeout - a
-    // countdown wouldn't otherwise advance its own completion (buzzer,
-    // report) once the idle screen takes over rendering, since that only
-    // happens from inside the view's own render().
+    // While true and focused, suppress the idle/ClockView timeout so ongoing
+    // work (e.g. a countdown) stays visible. Background execution uses loop()
+    // independently of this presentation preference.
     virtual bool keepsAwake() const { return false; }
 
     // Apply an inbound command addressed to one of this view's commandTemplates.

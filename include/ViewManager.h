@@ -102,6 +102,8 @@ public:
     void notifyBleDeviceLost(const String& address);
     void notifyBleAdvertisement(const BleAdvertisement& advertisement);
 
+    // Advances every configured view even when another screen owns the display.
+    void loop();
     void render(M5Canvas& canvas);
 
 private:
@@ -176,4 +178,3 @@ private:
 
     void renderCarousel(M5Canvas& canvas);
 };
-

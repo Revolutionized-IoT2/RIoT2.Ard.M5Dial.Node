@@ -595,6 +595,8 @@ void loop() {
         return orchestratorClient.requestConfiguration(url, config.id);
     });
 
+    viewManager.loop();
+
     if (rfidActive) {
         pollRfid();
     }

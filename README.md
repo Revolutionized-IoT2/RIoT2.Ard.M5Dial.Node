@@ -55,6 +55,29 @@ configuration fetch retries, complete bounded MQTT JSON, and silent restoration 
 present BLE devices after reconfiguration. See the shared README's bounded firmware
 policies for retry timing, packet limits and snapshot reporting semantics.
 
+Run `python ..\RIoT2.Ard.Shared\tests\test_firmware_architecture.py` for native
+timer lifecycle regressions: hidden/idle/pop-up completion, reporting exactly once,
+presentation-only rendering, cancellation, reconfiguration, multiple timers, and
+countdown/ring timing across `millis()` rollover. The harness compiles production
+timer and view-manager methods with deterministic display/clock/buzzer fakes and
+checks that the main-loop update precedes the diagnostics early return.
+
+### Timer execution
+
+`ViewManager::loop()` advances every configured view independently of rendering.
+A running countdown therefore completes and emits its usual `"0"` report even
+while the carousel, another view, a popup, idle clock, or diagnostics is displayed.
+Completion does not steal focus. Optional completion rings also continue hidden.
+Commands still only set the duration while the timer is in its setting phase;
+they do not start or cancel it. Cancel/dismiss stops that timer's pending work.
+Rebuilding configuration destroys old countdowns/rings without a completion
+report; replacement timers start in their setting phase.
+
+Execution remains cooperative: synchronous HTTP, connection, or other blocking
+work can delay completion until the main loop resumes. Elapsed time is preserved,
+and overdue rings are spaced out rather than replayed in a burst. This is not a
+hard real-time scheduler, and host tests do not replace board/buzzer validation.
+
 ## Flash to the M5Dial
 
 1. Connect the M5Dial to your computer via USB-C.

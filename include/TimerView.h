@@ -14,14 +14,15 @@
 // (default 60) - the dial is clamped to [stepMinutes, maxMinutes]. An
 // optional boolean deviceParameter "beepOnComplete" (default false), when
 // "true", plays a repeating "egg timer ring" (a handful of Buzzer::ring()
-// beeps spaced out over render() calls, non-blocking) instead of the usual
+// beeps spaced out over loop() calls, non-blocking) instead of the usual
 // single confirm chirp once the countdown finishes.
 //
 // Publishes a single Report with the remaining time ("0") only once the
 // countdown completes - it does not report every second while running.
-// Like every view here, it only ticks while focused (rendered); the
-// remaining time is computed from wall-clock elapsed time, so backgrounding
-// and returning to it doesn't lose accuracy. An inbound Command addressed to
+// Execution runs from loop(), including while another view, popup, diagnostics
+// or the idle screen is shown. Rendering never completes the timer or sends
+// reports. Reconfiguration destroys the old timer without a completion report.
+// An inbound Command addressed to
 // this view's commandTemplate presets the duration (in minutes) remotely,
 // but only while idle in Setting (never interrupts a running countdown).
 class TimerView : public IView {
@@ -30,6 +31,7 @@ public:
     void onTouch(int x, int y) override;
     void onEncoderChange(int delta) override;
     void onCommand(const Command& command) override;
+    void loop() override;
     bool isInteracting() const override { return _phase == Phase::Setting; }
     bool keepsAwake() const override { return _phase == Phase::Running; }
     void render(M5Canvas& canvas) override;
@@ -48,8 +50,9 @@ private:
     unsigned long _startMs = 0;
     int _totalSeconds = 0;
     int _ringsRemaining = 0;
-    unsigned long _nextRingMs = 0;
+    unsigned long _lastRingMs = 0;
 
+    int remainingSeconds() const;
     void start();
     void cancel();
     void finish();

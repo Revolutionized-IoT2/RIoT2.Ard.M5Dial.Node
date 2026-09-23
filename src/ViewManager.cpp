@@ -634,6 +634,12 @@ void ViewManager::renderCarousel(M5Canvas& canvas) {
     }
 }
 
+void ViewManager::loop() {
+    for (auto& entry : _entries) {
+        entry.view->loop();
+    }
+}
+
 void ViewManager::render(M5Canvas& canvas) {
     if (_entries.empty()) {
         canvas.fillScreen(BLACK);
@@ -644,11 +650,8 @@ void ViewManager::render(M5Canvas& canvas) {
         return;
     }
 
-    // Views doing ongoing background work while focused (e.g. TimerView
-    // actively counting down) suppress the idle/ClockView timeout - keep
-    // bumping _lastInputMs so the idle screen never takes over their
-    // rendering, since a countdown's own completion (buzzer, report) only
-    // fires from inside its render().
+    // Keep a focused countdown visible; background execution is driven by
+    // loop() regardless of whether this view or the idle screen is rendered.
     bool focusedViewKeepsAwake = _mode == Mode::Focused && activeView() && activeView()->keepsAwake();
     if (focusedViewKeepsAwake) {
         _lastInputMs = millis();
