@@ -414,6 +414,8 @@ void handleConfigurationUpdated(const NodeConfiguration& nodeConfiguration) {
     // BLEView, see BleScanner.h).
     if (viewManager.hasBleConsumer() && !bleActive) {
         Serial.println("[BLE] Configuration includes a BLE-consuming view, enabling on-device BLE scanner");
+        // Keep modem sleep enabled on later Wi-Fi retries as well as the initial BLE startup.
+        wifi.setModemSleepEnabled(true);
         BleScanner::instance().begin();
         bleActive = true;
         // Shrink the off-screen canvas to 8bpp now that BLE is active - see

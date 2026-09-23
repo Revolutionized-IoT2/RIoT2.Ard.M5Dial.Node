@@ -41,6 +41,15 @@ pio run
 Or in VS Code with the PlatformIO extension installed: open this folder, then use the
 **PlatformIO: Build** command (checkmark icon in the status bar).
 
+### Host regression tests
+
+With Python and a native C++ compiler available (a Visual Studio developer shell
+on Windows), run `python ..\RIoT2.Ard.Shared\tests\test_firmware_p1.py`.
+The Dial regression verifies that Wi-Fi retries retain modem sleep once BLE starts,
+including after a configuration removes its BLE view: the scanner remains running
+and still requires the compatible policy. Nodes without BLE retain their existing
+no-modem-sleep behavior. No board or network is used by these tests.
+
 ## Flash to the M5Dial
 
 1. Connect the M5Dial to your computer via USB-C.
