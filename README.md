@@ -50,6 +50,11 @@ including after a configuration removes its BLE view: the scanner remains runnin
 and still requires the compatible policy. Nodes without BLE retain their existing
 no-modem-sleep behavior. No board or network is used by these tests.
 
+Run `python ..\RIoT2.Ard.Shared\tests\test_firmware_p2.py` for P2 regressions:
+configuration fetch retries, complete bounded MQTT JSON, and silent restoration of
+present BLE devices after reconfiguration. See the shared README's bounded firmware
+policies for retry timing, packet limits and snapshot reporting semantics.
+
 ## Flash to the M5Dial
 
 1. Connect the M5Dial to your computer via USB-C.

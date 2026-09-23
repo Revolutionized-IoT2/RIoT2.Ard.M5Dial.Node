@@ -10,6 +10,7 @@
 #include <riot2/BleScanner.h>
 #include <riot2/Command.h>
 #include <riot2/ConfigTemplateServer.h>
+#include <riot2/ConfigurationRetry.h>
 #include <riot2/GpioPeripheral.h>
 #include <riot2/MqttConnection.h>
 #include <riot2/NodeConfig.h>
@@ -152,7 +153,7 @@ bool rfidActive = false;
 bool bleActive = false;
 
 // Set by handleConfigurationMessage() when riot2/node/{id}/configuration
-// arrives, and consumed once from the top-level loop() rather than being
+// arrives, and retried from the top-level loop() rather than being
 // acted on immediately inside the MQTT callback. requestConfiguration()
 // performs a blocking HTTP GET (up to several seconds) - running it
 // synchronously inside PubSubClient's own callback dispatch (mqtt.loop() ->
@@ -166,8 +167,7 @@ bool bleActive = false;
 // UI/carousel and looked like the node was rebooting. Deferring the actual
 // fetch to loop() (outside of _client.loop()'s call stack) avoids
 // re-entering/blocking PubSubClient's own processing.
-bool pendingConfigFetch = false;
-String pendingApiBaseUrl;
+ConfigurationRetry configurationRetry;
 
 // See BUG (fixed #3) in repo notes: on this PSRAM-less ESP32-S3 module, a
 // full-screen 16bpp (default) off-screen sprite combined with WiFi + the
@@ -380,12 +380,11 @@ void handleConfigurationMessage(const String& topic, const String& payload) {
         return;
     }
 
-    // See the pendingConfigFetch comment above: don't call
+    // See the configurationRetry comment above: don't call
     // orchestratorClient.requestConfiguration() (blocking HTTP GET) from
     // here directly - just record the request and let loop() perform it
     // outside of PubSubClient's own callback dispatch.
-    pendingApiBaseUrl = apiBaseUrl;
-    pendingConfigFetch = true;
+    configurationRetry.request(apiBaseUrl);
 }
 
 void handleConfigurationUpdated(const NodeConfiguration& nodeConfiguration) {
@@ -591,11 +590,10 @@ void loop() {
 
     // Runs the (blocking) configuration fetch requested by
     // handleConfigurationMessage(), outside of mqtt.loop()'s own callback
-    // dispatch - see the pendingConfigFetch comment above.
-    if (pendingConfigFetch) {
-        pendingConfigFetch = false;
-        orchestratorClient.requestConfiguration(pendingApiBaseUrl, config.id);
-    }
+    // dispatch. Failed attempts retry with bounded backoff while Wi-Fi is up.
+    configurationRetry.loop(wifi.isConnected(), [](const String& url) {
+        return orchestratorClient.requestConfiguration(url, config.id);
+    });
 
     if (rfidActive) {
         pollRfid();

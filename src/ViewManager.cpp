@@ -3,6 +3,7 @@
 #include <cmath>
 
 #include <riot2/PeripheralFactory.h>
+#include <riot2/BleScanner.h>
 
 #include "Icons.h"
 #include "ViewColors.h"
@@ -249,6 +250,9 @@ void ViewManager::rebuild(const NodeConfiguration& nodeConfiguration) {
 
         view->setReportCallback(_reportCallback);
         view->begin(deviceConfig);
+        if (view->consumesBleEvents()) {
+            view->onBleSnapshot(BleScanner::instance().snapshot());
+        }
 
         Entry entry;
         entry.config = deviceConfig;

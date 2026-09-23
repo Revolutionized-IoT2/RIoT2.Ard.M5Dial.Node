@@ -148,6 +148,11 @@ bool BLEView::isInteracting() const {
     return static_cast<int>(_devices.size()) > kVisibleRows;
 }
 
+void BLEView::onBleSnapshot(const std::vector<BleDeviceInfo>& devices) {
+    _devices = devices;
+    clampScrollOffset();
+}
+
 void BLEView::onBleDeviceDiscovered(const BleDeviceInfo& device) {
     _devices.push_back(device);
     if (_deviceFoundReportId.length() > 0 && isAddressAllowed(_deviceFoundAllowedAddresses, device.address)) {

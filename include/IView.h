@@ -79,6 +79,8 @@ public:
     // takes over the display.
     virtual bool consumesBleEvents() const { return false; }
 
+    virtual void onBleSnapshot(const std::vector<BleDeviceInfo>& devices) { (void)devices; }
+
     // A previously-unseen nearby BLE device started advertising.
     virtual void onBleDeviceDiscovered(const BleDeviceInfo& device) { (void)device; }
     // A previously-seen nearby BLE device hasn't been heard from recently
