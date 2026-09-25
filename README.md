@@ -5,7 +5,7 @@ in the [RIoT2](../RIoT2.Core) ecosystem. It connects to Wi-Fi and MQTT, announce
 RIoT2 Orchestrator, downloads its device configuration, and renders a rotary-dial UI for viewing
 and controlling remote devices (lights, scenes, sensors, etc.) via MQTT reports/commands.
 
-See [CLAUDE.md](CLAUDE.md) for the full architecture, MQTT contracts, and roadmap. Most of that
+See [CLAUDE.md](CLAUDE.md) for architecture notes, MQTT contracts, and agent guidance. Most of that
 connectivity/protocol logic (Wi-Fi, MQTT, provisioning, orchestrator handshake, OTA, peripherals,
 BLE scanning) actually lives in the sibling [RIoT2.Ard.Shared](../RIoT2.Ard.Shared) library, shared
 with [RIoT2.Ard.M5Core2.Node](../RIoT2.Ard.M5Core2.Node) — this project itself only implements the
@@ -111,8 +111,8 @@ reset), the M5Dial starts its own Wi-Fi access point and a captive-portal web fo
 
 1. Power on the M5Dial. The screen shows **"Setup needed"** with an AP name like
    `RIoT2-Setup-XXXX`.
-2. From a phone or laptop, connect to that Wi-Fi network.
-3. Browse to the address shown on the device (or just open any HTTP page — the captive portal
+2. From a phone or laptop, connect to that open Wi-Fi network.
+3. Browse to `http://192.168.4.1/` (or just open any HTTP page — the captive portal
    redirects you). Fill in:
    - **Id** — a unique node identifier (GUID) for this device.
    - **WifiSsid** / **WifiPassword** — your home/office Wi-Fi credentials.
@@ -135,11 +135,13 @@ Once a node is online, it doesn't need to be re-flashed over USB for future upda
 operator/orchestrator can publish the following to the node's `riot2/node/{id}/command` topic:
 
 ```json
-{ "id": "system.ota", "value": "http://host/path/to/firmware.bin" }
+{ "id": "system.ota", "value": "https://host/path/to/firmware.bin" }
 ```
 
-The node downloads and flashes the binary from that URL and reboots automatically on success. See
-[CLAUDE.md](CLAUDE.md#mqtt-message-contracts) for details.
+The node downloads and flashes the binary from that URL and reboots automatically on success.
+HTTPS URLs are validated with `RIOT2_ROOT_CA_PEM` when configured; without a root CA the firmware
+logs a warning and falls back to an insecure TLS connection. Plain HTTP still works for lab use.
+See [CLAUDE.md](CLAUDE.md#mqtt-contracts) for details.
 
 ## Troubleshooting
 
