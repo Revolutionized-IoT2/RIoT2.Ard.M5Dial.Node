@@ -1,160 +1,120 @@
 # RIoT2.Ard.M5Dial.Node
 
-Firmware for the [M5Stack M5Dial](https://docs.m5stack.com/en/core/M5Dial) acting as a **Node**
-in the [RIoT2](../RIoT2.Core) ecosystem. It connects to Wi-Fi and MQTT, announces itself to the
-RIoT2 Orchestrator, downloads its device configuration, and renders a rotary-dial UI for viewing
-and controlling remote devices (lights, scenes, sensors, etc.) via MQTT reports/commands.
+PlatformIO/Arduino firmware for the [M5Stack M5Dial](https://docs.m5stack.com/en/core/M5Dial) as
+a RIoT2 device node. It connects to Wi-Fi and MQTT, announces itself to the orchestrator, fetches
+device configuration and renders a rotary/touch UI for views such as buttons, sliders, timers,
+scenes, RFID and BLE.
 
-See [CLAUDE.md](CLAUDE.md) for architecture notes, MQTT contracts, and agent guidance. Most of that
-connectivity/protocol logic (Wi-Fi, MQTT, provisioning, orchestrator handshake, OTA, peripherals,
-BLE scanning) actually lives in the sibling [RIoT2.Ard.Shared](../RIoT2.Ard.Shared) library, shared
-with [RIoT2.Ard.M5Core2.Node](../RIoT2.Ard.M5Core2.Node) — this project itself only implements the
-M5Dial-specific rotary-dial UI, encoder/button input, and buzzer feedback on top of it.
+Most connectivity and protocol code lives in
+[RIoT2.Ard.Shared](https://github.com/Revolutionized-IoT2/RIoT2.Ard.Shared). This repository owns
+the M5Dial-specific canvas UI, rotary encoder, physical button gestures, buzzer feedback, built-in
+RFID reader activation and Grove pin map.
 
-## Prerequisites
+## Hardware and prerequisites
 
-- [PlatformIO](https://platformio.org/) — either the [VS Code extension](https://platformio.org/install/ide?install=vscode)
-  or the standalone `pio` CLI.
-- A USB-C cable and an [M5Stack M5Dial](https://docs.m5stack.com/en/core/M5Dial) device.
-- The sibling [RIoT2.Ard.Shared](../RIoT2.Ard.Shared) directory checked out alongside this one
-  (referenced via `lib_extra_dirs = ../RIoT2.Ard.Shared` in [platformio.ini](platformio.ini) —
-  no separate build step needed, PlatformIO compiles it as part of this project's build).
-- (Windows) USB-serial drivers for the M5Dial's USB-to-UART chip if your OS doesn't detect the
-  device automatically — see M5Stack's [driver download page](https://docs.m5stack.com/en/download).
+- M5Stack M5Dial and USB-C cable.
+- PlatformIO, either the VS Code extension or CLI.
+- The sibling [RIoT2.Ard.Shared](https://github.com/Revolutionized-IoT2/RIoT2.Ard.Shared)
+  repository checked out next to this one.
+- Windows USB-serial drivers if the device is not detected automatically.
 
-No manual library installation is required — PlatformIO resolves all dependencies
-(`m5stack/M5Dial`, `m5stack/M5Unified`, `PubSubClient`, `ArduinoJson`, `NimBLE-Arduino`,
-`ESP32Encoder`, plus core-bundled ESP32 libraries) from [platformio.ini](platformio.ini) on first
-build.
+PlatformIO restores libraries from [platformio.ini](platformio.ini): `M5Dial`, `M5Unified`,
+`PubSubClient`, `ArduinoJson`, `NimBLE-Arduino` and `ESP32Encoder`.
 
 ## Build
 
-Using the PlatformIO CLI:
+Run from the workspace root (`C:\Src\RIoT2`) in PowerShell:
 
 ```powershell
-# If `pio` isn't on your PATH (common on Windows), use the full path instead:
-# & "$env:USERPROFILE\.platformio\penv\Scripts\pio.exe" run
-
-pio run
+$pio = "$env:USERPROFILE\.platformio\penv\Scripts\pio.exe"
+& $pio run -d .\RIoT2.Ard.M5Dial.Node
 ```
 
-Or in VS Code with the PlatformIO extension installed: open this folder, then use the
-**PlatformIO: Build** command (checkmark icon in the status bar).
+The firmware image is produced under `.pio\build\m5stack-stamps3\firmware.bin`.
 
-### Host regression tests
+To upload only when a device is connected and you intend to flash it:
 
-With Python and a native C++ compiler available (a Visual Studio developer shell
-on Windows), run `python ..\RIoT2.Ard.Shared\tests\test_firmware_p1.py`.
-The Dial regression verifies that Wi-Fi retries retain modem sleep once BLE starts,
-including after a configuration removes its BLE view: the scanner remains running
-and still requires the compatible policy. Nodes without BLE retain their existing
-no-modem-sleep behavior. No board or network is used by these tests.
+```powershell
+& $pio run -d .\RIoT2.Ard.M5Dial.Node -t upload
+& $pio device monitor -d .\RIoT2.Ard.M5Dial.Node
+```
 
-Run `python ..\RIoT2.Ard.Shared\tests\test_firmware_p2.py` for P2 regressions:
-configuration fetch retries, complete bounded MQTT JSON, and silent restoration of
-present BLE devices after reconfiguration. See the shared README's bounded firmware
-policies for retry timing, packet limits and snapshot reporting semantics.
+Host regressions are in the shared repository:
 
-Run `python ..\RIoT2.Ard.Shared\tests\test_firmware_architecture.py` for native
-timer lifecycle regressions: hidden/idle/pop-up completion, reporting exactly once,
-presentation-only rendering, cancellation, reconfiguration, multiple timers, and
-countdown/ring timing across `millis()` rollover. The harness compiles production
-timer and view-manager methods with deterministic display/clock/buzzer fakes and
-checks that the main-loop update precedes the diagnostics early return.
+```powershell
+Set-Location C:\Src\RIoT2\RIoT2.Ard.Shared
+python .\tests\test_firmware_p1.py
+python .\tests\test_firmware_p2.py
+python .\tests\test_firmware_architecture.py
+```
 
-### Timer execution
+## First boot provisioning
 
-`ViewManager::loop()` advances every configured view independently of rendering.
-A running countdown therefore completes and emits its usual `"0"` report even
-while the carousel, another view, a popup, idle clock, or diagnostics is displayed.
-Completion does not steal focus. Optional completion rings also continue hidden.
-Commands still only set the duration while the timer is in its setting phase;
-they do not start or cancel it. Cancel/dismiss stops that timer's pending work.
-Rebuilding configuration destroys old countdowns/rings without a completion
-report; replacement timers start in their setting phase.
+The firmware ships without Wi-Fi or MQTT credentials. On first boot, or after factory reset, it
+starts an open setup access point named `RIoT2-Setup-XXXX`. The M5Dial display shows the setup
+state and AP name.
 
-Execution remains cooperative: synchronous HTTP, connection, or other blocking
-work can delay completion until the main loop resumes. Elapsed time is preserved,
-and overdue rings are spaced out rather than replayed in a burst. This is not a
-hard real-time scheduler, and host tests do not replace board/buzzer validation.
+Connect to the setup AP and open `http://192.168.4.1/`. The portal stores:
 
-## Flash to the M5Dial
+- node id and name;
+- Wi-Fi SSID and password;
+- MQTT URL, username and password;
+- MQTT TLS flag;
+- vibration feedback flag, carried for shared settings compatibility but unused by this board.
 
-1. Connect the M5Dial to your computer via USB-C.
-2. Build and upload in one step:
+Settings are stored in ESP32 NVS namespace `riot2node`; see the hub
+[firmware settings contract](https://github.com/Revolutionized-IoT2/.github/blob/main/docs/contracts/env-vars.md#firmware-m5core2-m5dial).
 
-   ```powershell
-   pio run -t upload
-   ```
+To factory-reset provisioning, hold the physical dial button for about five seconds.
 
-   If PlatformIO can't auto-detect the serial port, list available ports and pass one explicitly:
+## UI and operation
 
-   ```powershell
-   pio device list
-   pio run -t upload --upload-port COM5
-   ```
-3. (Optional) Open the serial monitor to watch boot/connection logs (115200 baud):
+- Rotate the encoder to move through carousel entries, then press the physical button to enter a
+  view.
+- Press the physical button from a focused view to return to the carousel.
+- Hold the physical button for about 1.5 seconds to toggle diagnostics.
+- In diagnostics, hold the on-screen power button for about two seconds to publish offline and
+  power off.
+- The display dims after about 15 seconds of inactivity and sleeps after about 60 seconds. The
+  first wake input is swallowed.
+- Built-in MFRC522 RFID is initialized only when the live configuration contains an RFID-consuming
+  view; repeated reads of the same UID are suppressed for three seconds.
+- BLE scanning starts only when a BLE-consuming view exists, then remains active.
+- Grove pins are A1/GPIO13, A2/GPIO15, B1/GPIO2 and B2/GPIO1.
 
-   ```powershell
-   pio device monitor
-   ```
-4. Or do build + upload + monitor in one step:
+## OTA
 
-   ```powershell
-   pio run -t upload -t monitor
-   ```
-
-## First boot: provisioning
-
-The firmware ships with no Wi-Fi/MQTT credentials baked in. On first boot (or after a factory
-reset), the M5Dial starts its own Wi-Fi access point and a captive-portal web form:
-
-1. Power on the M5Dial. The screen shows **"Setup needed"** with an AP name like
-   `RIoT2-Setup-XXXX`.
-2. From a phone or laptop, connect to that open Wi-Fi network.
-3. Browse to `http://192.168.4.1/` (or just open any HTTP page — the captive portal
-   redirects you). Fill in:
-   - **Id** — a unique node identifier (GUID) for this device.
-   - **WifiSsid** / **WifiPassword** — your home/office Wi-Fi credentials.
-   - **MqttServerUrl** — address of your MQTT broker.
-   - **MqttUsername** / **MqttPassword** — MQTT broker credentials (if required).
-   - **Use TLS for MQTT** — checkbox; connects over `WiFiClientSecure` on port 8883 instead of
-     plaintext when checked.
-   - **Enable vibration feedback** — checkbox, checked by default; present on every RIoT2 node
-     regardless of hardware, but harmless/unused here since the M5Dial has no vibration motor.
-4. Submit the form. The device saves the configuration to flash (NVS) and restarts into normal
-   operation, connecting to your Wi-Fi and MQTT broker and then to the RIoT2 Orchestrator.
-
-To re-enter provisioning later (e.g. to change networks), perform a **factory reset**: press and
-hold the M5Dial's physical button (the clickable encoder/display, `BtnA`) for about 5 seconds.
-This clears the stored configuration and restarts the device back into the setup flow.
-
-## Updating firmware over the air (OTA)
-
-Once a node is online, it doesn't need to be re-flashed over USB for future updates — an
-operator/orchestrator can publish the following to the node's `riot2/node/{id}/command` topic:
+Firmware OTA is triggered by an MQTT command to `riot2/node/{id}/command`:
 
 ```json
 { "id": "system.ota", "value": "https://host/path/to/firmware.bin" }
 ```
 
-The node downloads and flashes the binary from that URL and reboots automatically on success.
-HTTPS URLs are validated with `RIOT2_ROOT_CA_PEM` when configured; without a root CA the firmware
-logs a warning and falls back to an insecure TLS connection. Plain HTTP still works for lab use.
-See [CLAUDE.md](CLAUDE.md#mqtt-contracts) for details.
+`system.ota` is reserved for firmware and is handled before view/peripheral dispatch. HTTPS
+downloads use the compiled `RIOT2_ROOT_CA_PEM` when present; otherwise the firmware logs a warning
+and uses insecure TLS.
 
 ## Troubleshooting
 
-- **Upload fails / port not found:** confirm the correct COM port with `pio device list`, and
-  make sure no other program (serial monitor, another IDE) has the port open.
-- **Device boots but stays on "Setup needed":** it has no valid stored configuration — complete
-  the provisioning flow above.
-- **Stuck on "WiFi: connecting..." / "MQTT: connecting...":** double-check the credentials
-  entered during provisioning (factory reset and re-provision if needed).
-- **On-device diagnostics:** press and hold the physical button for about 1.5 seconds (shorter
-  than the factory-reset hold) to toggle a diagnostics screen showing Wi-Fi/MQTT status, signal
-  strength, and free heap.
-- **Stuck inside a view / can't get back to the home menu:** press the physical button - it
-  always returns you to the home carousel, no matter what a view does with touch or the bezel.
-  Views themselves only respond to touch and the bezel (rotary dial); the physical button is
-  reserved exclusively for this "go back" gesture.
+- **Upload fails or the port isn't found:** find the COM port with `& $pio device list`. Make
+  sure no other program (a serial monitor or another IDE) has the port open.
+- **The device stays on "Setup needed":** it has no valid stored configuration. Complete the
+  provisioning above.
+- **Stuck on "WiFi: connecting..." or "MQTT: connecting...":** check the credentials entered
+  during provisioning. If needed, factory-reset (hold the button for 5 s) and provision again.
+- **Diagnostics:** hold the physical button for about 1.5 s to toggle the diagnostics screen
+  (Wi-Fi and MQTT status, signal strength, free heap).
+- **Can't get back to the home menu:** press the physical button. It always returns to the home
+  carousel; views only respond to touch and the bezel.
+## Contracts and links
+
+- [MQTT topics and payloads](https://github.com/Revolutionized-IoT2/.github/blob/main/docs/contracts/mqtt-topics.md)
+- [Firmware configuration subset](https://github.com/Revolutionized-IoT2/.github/blob/main/docs/contracts/configuration.md#firmware-subset)
+- [Firmware HTTP behavior](https://github.com/Revolutionized-IoT2/.github/blob/main/docs/contracts/http-api.md#firmware-riot2ardshared)
+- [Architecture overview](https://github.com/Revolutionized-IoT2/.github/blob/main/docs/architecture/overview.md)
+- AI coding instructions: [AGENTS.md](AGENTS.md)
+- Release notes: [CHANGELOG.md](CHANGELOG.md)
+
+## License
+
+See [LICENSE](LICENSE).
