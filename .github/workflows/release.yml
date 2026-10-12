@@ -1,0 +1,17 @@
+name: Release
+
+# Bump VERSION, commit, then push the same x.y.z tag. The release gets
+# firmware-m5stack-stamps3-<tag>.bin, manifest-m5stack-stamps3-<tag>.json and SHA256SUMS.
+
+on:
+  push:
+    tags: ["*.*.*"]
+
+permissions:
+  contents: write
+
+jobs:
+  firmware:
+    uses: Revolutionized-IoT2/.github/.github/workflows/firmware-release.yml@main
+    with:
+      project: RIoT2.Ard.M5Dial.Node
