@@ -41,8 +41,11 @@ Device commands, only when an M5Dial is connected and flashing/monitoring was re
 - Build artifact: `.pio\build\m5stack-stamps3\firmware.bin`.
 - Run: there is no host runtime. Do not run upload/monitor unless the task explicitly involves a
   connected device.
-- Release: no CI workflow or git tags are present. Update `VERSION`, build the `.bin`, and serve it
-  to OTA if doing a manual release.
+- CI: `.github/workflows/ci.yml` builds every firmware project and runs the Ard.Shared native
+  tests on every push ([CI guide](https://github.com/Revolutionized-IoT2/.github/blob/main/docs/guides/ci.md)).
+- Release: bump `VERSION`, commit, then push the same `x.y.z` tag. `release.yml` attaches
+  `firmware-m5stack-stamps3-<tag>.bin`, the manifest and `SHA256SUMS` to a GitHub release; serve the
+  `.bin` to OTA from there.
 
 ## Layout
 
