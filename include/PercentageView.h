@@ -2,12 +2,15 @@
 
 #include <Arduino.h>
 
+#include <riot2/views/PercentageModel.h>
+
 #include "IView.h"
 
 // Tap anywhere on the view to enter "adjust" mode, rotate the dial to change
-// a 0-100% value (with an arc as visual feedback), tap again to confirm and
-// publish the value as a Report. The value can also be pushed in from an
-// inbound Command while not actively being adjusted.
+// a 0-100% value (the shared riot2::views::PercentageModel, with an arc as
+// visual feedback), tap again to confirm and publish the value as a Report.
+// The value can also be pushed in from an inbound Command while not actively
+// being adjusted.
 class PercentageView : public IView {
 public:
     void begin(const DeviceConfiguration& config) override;
@@ -20,10 +23,7 @@ public:
 private:
     static constexpr int kStep = 2;
 
-    String _commandId;
-    String _reportId;
-    String _name;
-    int _value = 0;
+    riot2::views::PercentageModel _model;
     int _pendingValue = 0;
     bool _adjusting = false;
 };

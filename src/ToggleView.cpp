@@ -2,8 +2,6 @@
 
 #include <memory>
 
-#include <riot2/Uuid.h>
-
 #include "Buzzer.h"
 #include "ViewColors.h"
 #include "ViewFactory.h"
@@ -34,74 +32,39 @@ void drawSwitch(M5Canvas& canvas, int cx, int cy, const String& name, bool activ
 }  // namespace
 
 void ToggleView::begin(const DeviceConfiguration& config) {
-    _slots.clear();
-
-    for (const auto& report : config.reportTemplates) {
-        Slot slot;
-        slot.report = report;
-
-        for (const auto& cmd : config.commandTemplates) {
-            if (report.address.length() > 0 && cmd.address == report.address) {
-                slot.command = cmd;
-                slot.hasCommand = true;
-                break;
-            }
-        }
-
-        _slots.push_back(slot);
-        if (_slots.size() >= 2) {
-            break;
-        }
-    }
+    _model.begin(config);
 }
 
 int ToggleView::slotAt(int x, int y) const {
     (void)x;
-    if (_slots.empty()) {
+    int count = static_cast<int>(_model.size());
+    if (count == 0) {
         return -1;
     }
-    if (_slots.size() == 1) {
+    if (count == 1) {
         return 0;
     }
-
-    int rowHeight = 240 / static_cast<int>(_slots.size());
-    int index = y / rowHeight;
-    if (index < 0) {
-        index = 0;
-    }
-    if (index >= static_cast<int>(_slots.size())) {
-        index = static_cast<int>(_slots.size()) - 1;
-    }
-    return index;
-}
-
-void ToggleView::toggle(int index) {
-    if (index < 0 || index >= static_cast<int>(_slots.size()) || _slots[index].report.id.length() == 0) {
-        return;
-    }
-    Slot& slot = _slots[index];
-    slot.active = !slot.active;
-    Buzzer::tap();
-    publishReport(Report{slot.report.id, slot.active ? "true" : "false"});
+    int index = y / (240 / count);
+    return index < 0 ? 0 : (index >= count ? count - 1 : index);
 }
 
 void ToggleView::onTouch(int x, int y) {
-    toggle(slotAt(x, y));
+    int index = slotAt(x, y);
+    Report report;
+    if (index >= 0 && _model.toggle(static_cast<size_t>(index), report)) {
+        Buzzer::tap();
+        publishReport(report);
+    }
 }
 
 void ToggleView::onCommand(const Command& command) {
-    for (auto& slot : _slots) {
-        if (slot.hasCommand && slot.command.id == command.id) {
-            slot.active = command.value.is<bool>() ? command.value.as<bool>() : command.value.as<int>() != 0;
-            return;
-        }
-    }
+    _model.onCommand(command);
 }
 
 void ToggleView::render(M5Canvas& canvas) {
     canvas.fillScreen(BLACK);
 
-    if (_slots.empty()) {
+    if (_model.size() == 0) {
         canvas.setTextColor(WHITE);
         canvas.setTextDatum(middle_center);
         canvas.setTextSize(2);
@@ -110,45 +73,23 @@ void ToggleView::render(M5Canvas& canvas) {
     }
 
     int cx = canvas.width() / 2;
-
-    if (_slots.size() == 1) {
-        drawSwitch(canvas, cx, canvas.height() / 2, _slots[0].report.name, _slots[0].active);
-    } else {
-        int rowHeight = canvas.height() / static_cast<int>(_slots.size());
-        for (size_t i = 0; i < _slots.size(); ++i) {
-            int cy = static_cast<int>(i) * rowHeight + rowHeight / 2;
-            drawSwitch(canvas, cx, cy, _slots[i].report.name, _slots[i].active);
-        }
+    if (_model.size() == 1) {
+        drawSwitch(canvas, cx, canvas.height() / 2, _model.name(0), _model.isActive(0));
+        return;
+    }
+    int rowHeight = canvas.height() / static_cast<int>(_model.size());
+    for (size_t i = 0; i < _model.size(); ++i) {
+        int cy = static_cast<int>(i) * rowHeight + rowHeight / 2;
+        drawSwitch(canvas, cx, cy, _model.name(i), _model.isActive(i));
     }
 }
 
 namespace {
-DeviceConfiguration buildToggleViewTemplate() {
-    DeviceConfiguration config;
-    config.id = riot2::newId();
-    config.name = "Toggle View";
-    config.classFullName = "RIoT2.Ard.M5Dial.Node.ToggleView";
-
-    CommandTemplate cmd;
-    cmd.id = riot2::newId();
-    cmd.type = riot2::ValueType::Boolean;
-    cmd.name = "Toggle";
-    cmd.address = "relay-1";
-    config.commandTemplates.push_back(cmd);
-
-    ReportTemplate report;
-    report.id = riot2::newId();
-    report.type = riot2::ValueType::Boolean;
-    report.name = "Toggle";
-    report.address = "relay-1";
-    config.reportTemplates.push_back(report);
-    return config;
-}
-
 struct ToggleViewRegistrar {
     ToggleViewRegistrar() {
-        ViewFactory::instance().registerCreator("RIoT2.Ard.M5Dial.Node.ToggleView",
-                                              []() { return std::make_unique<ToggleView>(); }, buildToggleViewTemplate);
+        ViewFactory::instance().registerCreator(
+            "RIoT2.Ard.M5Dial.Node.ToggleView", []() { return std::make_unique<ToggleView>(); },
+            []() { return riot2::views::ToggleModel::buildTemplate("RIoT2.Ard.M5Dial.Node.ToggleView", 1); });
     }
 } toggleViewRegistrar;
 }  // namespace

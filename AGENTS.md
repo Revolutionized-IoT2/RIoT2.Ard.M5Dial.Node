@@ -53,7 +53,7 @@ Device commands, only when an M5Dial is connected and flashing/monitoring was re
 |---|---|
 | `platformio.ini` | `m5stack-stamps3` environment (platform `espressif32` pinned for OTA rollback), C++14 flags, shared-library path and board libraries |
 | `MANIFEST_NAME`, `VERSION` | Inputs to the shared manifest generation script |
-| `include/*View.h`, `src/*View.cpp` | M5Dial canvas views and templates |
+| `include/*View.h`, `src/*View.cpp` | M5Dial canvas views and templates; the shared view types render a `riot2::views` model (RIoT2.Ard.Shared), which also builds their template |
 | `include/ViewManager.h`, `src/ViewManager.cpp` | Carousel, focus, popups, hidden timers, RFID/BLE event routing |
 | `include/Buzzer.h`, `src/main.cpp` | Buzzer feedback and board lifecycle wiring |
 | `include/RFIDView.h`, `src/RFIDView.cpp` | Built-in RFID view |

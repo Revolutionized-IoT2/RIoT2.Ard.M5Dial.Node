@@ -2,8 +2,6 @@
 
 #include <memory>
 
-#include <riot2/Uuid.h>
-
 #include "Buzzer.h"
 #include "ViewColors.h"
 #include "ViewFactory.h"
@@ -17,61 +15,46 @@ const uint16_t kAdjustColor = ViewColors::toRGB565(ViewColors::lighten(ViewColor
 }  // namespace
 
 void PercentageView::begin(const DeviceConfiguration& config) {
-    _name = config.name;
-    _commandId = config.commandTemplates.empty() ? "" : config.commandTemplates[0].id;
-    _reportId = config.reportTemplates.empty() ? "" : config.reportTemplates[0].id;
-    _value = 0;
-    _pendingValue = 0;
+    _model.begin(config);
+    _pendingValue = _model.value();
     _adjusting = false;
 }
 
 void PercentageView::onTouch(int x, int y) {
     (void)x;
     (void)y;
-    if (_reportId.length() == 0) {
+    if (!_model.canReport()) {
         return;
     }
 
     if (!_adjusting) {
         _adjusting = true;
-        _pendingValue = _value;
-    } else {
-        _adjusting = false;
-        _value = _pendingValue;
+        _pendingValue = _model.value();
+        return;
+    }
+    _adjusting = false;
+    Report report;
+    if (_model.set(_pendingValue, report)) {
         Buzzer::confirm();
-        publishReport(Report{_reportId, String(_value)});
+        publishReport(report);
     }
 }
 
 void PercentageView::onEncoderChange(int delta) {
-    _pendingValue += (delta > 0 ? kStep : -kStep);
-    if (_pendingValue < 0) {
-        _pendingValue = 0;
-    }
-    if (_pendingValue > 100) {
-        _pendingValue = 100;
-    }
+    _pendingValue = riot2::views::PercentageModel::clamp(_pendingValue + (delta > 0 ? kStep : -kStep));
 }
 
 void PercentageView::onCommand(const Command& command) {
-    if (_adjusting || _commandId.length() == 0 || command.id != _commandId) {
-        return;
+    // A command doesn't move the value under the user's finger.
+    if (!_adjusting) {
+        _model.onCommand(command);
     }
-
-    int value = command.value.as<int>();
-    if (value < 0) {
-        value = 0;
-    }
-    if (value > 100) {
-        value = 100;
-    }
-    _value = value;
 }
 
 void PercentageView::render(M5Canvas& canvas) {
     canvas.fillScreen(BLACK);
 
-    int displayValue = _adjusting ? _pendingValue : _value;
+    int displayValue = _adjusting ? _pendingValue : _model.value();
     int cx = canvas.width() / 2;
     int cy = canvas.height() / 2;
     int outerR = (cx < cy ? cx : cy) - 10;
@@ -89,37 +72,15 @@ void PercentageView::render(M5Canvas& canvas) {
     canvas.drawString(String(displayValue) + "%", cx, cy - 10);
 
     canvas.setTextSize(1);
-    canvas.drawString(_adjusting ? "rotate + tap to confirm" : _name, cx, cy + 30);
+    canvas.drawString(_adjusting ? "rotate + tap to confirm" : _model.name(), cx, cy + 30);
 }
 
 namespace {
-DeviceConfiguration buildPercentageViewTemplate() {
-    DeviceConfiguration config;
-    config.id = riot2::newId();
-    config.name = "Percentage View";
-    config.classFullName = "RIoT2.Ard.M5Dial.Node.PercentageView";
-
-    CommandTemplate cmd;
-    cmd.id = riot2::newId();
-    cmd.type = riot2::ValueType::Number;
-    cmd.name = "Percentage";
-    cmd.address = "dimmer-1";
-    config.commandTemplates.push_back(cmd);
-
-    ReportTemplate report;
-    report.id = riot2::newId();
-    report.type = riot2::ValueType::Number;
-    report.name = "Percentage";
-    report.address = "dimmer-1";
-    config.reportTemplates.push_back(report);
-    return config;
-}
-
 struct PercentageViewRegistrar {
     PercentageViewRegistrar() {
-        ViewFactory::instance().registerCreator("RIoT2.Ard.M5Dial.Node.PercentageView",
-                                              []() { return std::make_unique<PercentageView>(); },
-                                              buildPercentageViewTemplate);
+        ViewFactory::instance().registerCreator(
+            "RIoT2.Ard.M5Dial.Node.PercentageView", []() { return std::make_unique<PercentageView>(); },
+            []() { return riot2::views::PercentageModel::buildTemplate("RIoT2.Ard.M5Dial.Node.PercentageView"); });
     }
 } percentageViewRegistrar;
 }  // namespace

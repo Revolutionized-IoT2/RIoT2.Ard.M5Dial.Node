@@ -2,8 +2,6 @@
 
 #include <memory>
 
-#include <riot2/Uuid.h>
-
 #include "Buzzer.h"
 #include "ViewColors.h"
 #include "ViewFactory.h"
@@ -11,74 +9,15 @@
 namespace {
 const uint16_t kAlertColor = ViewColors::toRGB565(ViewColors::Alert);                    // this view's assigned color
 const uint16_t kAlertSecondaryColor = ViewColors::toRGB565(ViewColors::AlertSecondary);  // pale accent for secondary text
-
-// Pulls a human-readable title/message out of a Command's loosely-typed
-// value: a plain string is used as the message directly, an object looks
-// for "title"/"message" (falling back to "text") keys, anything else (or a
-// missing key) falls back to the supplied default.
-String extractField(const JsonVariantConst& value, const char* key, const String& fallback) {
-    if (value.is<JsonObjectConst>()) {
-        JsonObjectConst obj = value.as<JsonObjectConst>();
-        if (obj[key].is<const char*>()) {
-            return obj[key].as<String>();
-        }
-    }
-    return fallback;
-}
-
-String extractMessage(const JsonVariantConst& value, const String& fallback) {
-    if (value.is<const char*>()) {
-        return value.as<String>();
-    }
-    return extractField(value, "message", extractField(value, "text", fallback));
-}
-
-// Reads an optional "soundEnabled" field out of the Command's `value` object.
-// Accepts a real JSON boolean (expected) or a "true"/"false" string, so it
-// tolerates either representation from the orchestrator.
-bool extractSoundEnabled(const JsonVariantConst& value, bool fallback) {
-    if (value.is<JsonObjectConst>()) {
-        JsonVariantConst v = value.as<JsonObjectConst>()["soundEnabled"];
-        if (v.is<bool>()) {
-            return v.as<bool>();
-        }
-        if (v.is<const char*>()) {
-            return String(v.as<const char*>()).equalsIgnoreCase("true");
-        }
-    }
-    return fallback;
-}
-}  // namespace
-
-namespace {
-DeviceConfiguration buildAlertViewTemplate() {
-    DeviceConfiguration config;
-    config.id = riot2::newId();
-    config.name = "Alert View";
-    config.classFullName = "RIoT2.Ard.M5Dial.Node.AlertView";
-
-    CommandTemplate cmd;
-    cmd.id = riot2::newId();
-    cmd.type = riot2::ValueType::Entity;  // value is { title, message, subHeader, soundEnabled }
-    cmd.name = "Alert";
-    cmd.address = "alert-1";
-    config.commandTemplates.push_back(cmd);
-    return config;
-}
 }  // namespace
 
 void AlertView::begin(const DeviceConfiguration& config) {
-    (void)config;
-    _title = "Alert";
-    _message = "";
-    _subHeader = "tap to acknowledge";
-    _acknowledged = true;
-    _soundEnabled = false;
+    _model.begin(config);
 }
 
 void AlertView::onEnter() {
-    _acknowledged = false;
-    if (_soundEnabled) {
+    _model.show();
+    if (_model.soundEnabled()) {
         Buzzer::alert();
     }
 }
@@ -86,18 +25,13 @@ void AlertView::onEnter() {
 void AlertView::onTouch(int x, int y) {
     (void)x;
     (void)y;
-    if (_acknowledged) {
-        return;
+    if (_model.acknowledge()) {
+        Buzzer::confirm();
     }
-    _acknowledged = true;
-    Buzzer::confirm();
 }
 
 void AlertView::onCommand(const Command& command) {
-    _title = extractField(command.value, "title", "Alert");
-    _message = extractMessage(command.value, "");
-    _subHeader = extractField(command.value, "subHeader", "tap to acknowledge");
-    _soundEnabled = extractSoundEnabled(command.value, false);
+    _model.onCommand(command);
 }
 
 void AlertView::render(M5Canvas& canvas) {
@@ -118,22 +52,23 @@ void AlertView::render(M5Canvas& canvas) {
     canvas.setTextDatum(middle_center);
     canvas.setTextColor(WHITE, kAlertColor);
     canvas.setTextSize(2);
-    canvas.drawString(_title, cx, cy);
+    canvas.drawString(_model.title(), cx, cy);
 
     canvas.setTextColor(kAlertSecondaryColor, kAlertColor);
-    if (_message.length() > 0) {
+    if (_model.message().length() > 0) {
         canvas.setTextSize(1);
-        canvas.drawString(_message, cx, cy + 26);
+        canvas.drawString(_model.message(), cx, cy + 26);
     }
 
-    canvas.drawString(_subHeader, cx, canvas.height() - 22);
+    canvas.drawString(_model.subHeader(), cx, canvas.height() - 22);
 }
 
 namespace {
 struct AlertViewRegistrar {
     AlertViewRegistrar() {
-        ViewFactory::instance().registerCreator("RIoT2.Ard.M5Dial.Node.AlertView",
-                                              []() { return std::make_unique<AlertView>(); }, buildAlertViewTemplate);
+        ViewFactory::instance().registerCreator(
+            "RIoT2.Ard.M5Dial.Node.AlertView", []() { return std::make_unique<AlertView>(); },
+            []() { return riot2::views::AlertModel::buildTemplate("RIoT2.Ard.M5Dial.Node.AlertView"); });
     }
 } alertViewRegistrar;
 }  // namespace

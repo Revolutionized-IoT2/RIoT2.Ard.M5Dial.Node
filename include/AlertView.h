@@ -2,6 +2,8 @@
 
 #include <Arduino.h>
 
+#include <riot2/views/AlertModel.h>
+
 #include "IView.h"
 
 // Transient full-screen alert pushed by an inbound Command (e.g. doorbell,
@@ -14,19 +16,17 @@
 // returns to the carousel) - it never auto-dismisses on its own, since it's
 // meant for things that need a deliberate acknowledgement.
 //
-// The Command's `value` is expected to be an object with "title", "message",
-// and "subHeader" fields (e.g. { "title": "Doorbell", "message": "Someone is
-// at the front door", "subHeader": "tap to acknowledge" }); a plain string is
-// used directly as the message instead. Falls back to generic built-in
-// defaults ("Alert" title, empty message, "tap to acknowledge" subHeader)
-// when the value doesn't specify them.
+// The Command's `value` is parsed by the shared riot2::views::AlertModel: an
+// object with "title", "message", and "subHeader" fields (e.g. { "title":
+// "Doorbell", "message": "Someone is at the front door", "subHeader": "tap to
+// acknowledge" }), or a plain string used directly as the message. Falls back
+// to generic built-in defaults ("Alert" title, empty message, "tap to
+// acknowledge" subHeader) when the value doesn't specify them.
 //
 // The Command's `value` object may also include a "soundEnabled" field
-// (default false) controlling whether an alert sound (Buzzer::error()) plays
+// (default false) controlling whether an alert sound (Buzzer::alert()) plays
 // when that particular command takes over the display - e.g. { "title": "...",
-// "message": "...", "soundEnabled": true }. Sent per-command rather than as a
-// commandTemplate parameter, since RIoT2.Core doesn't support parameters on
-// commandTemplates.
+// "message": "...", "soundEnabled": true }.
 class AlertView : public IView {
 public:
     void begin(const DeviceConfiguration& config) override;
@@ -36,12 +36,8 @@ public:
     void render(M5Canvas& canvas) override;
 
     bool isAlert() const override { return true; }
-    bool wantsExit() override { return _acknowledged; }
+    bool wantsExit() override { return _model.isAcknowledged(); }
 
 private:
-    String _title;
-    String _message;
-    String _subHeader;
-    bool _acknowledged = true;  // nothing to show until a command actually arrives
-    bool _soundEnabled = false;
+    riot2::views::AlertModel _model;
 };

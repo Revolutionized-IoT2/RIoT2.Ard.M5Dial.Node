@@ -2,8 +2,6 @@
 
 #include <memory>
 
-#include <riot2/Uuid.h>
-
 #include "Buzzer.h"
 #include "ViewColors.h"
 #include "ViewFactory.h"
@@ -12,82 +10,15 @@ namespace {
 const uint16_t kNotificationColor = ViewColors::toRGB565(ViewColors::Notification);          // this view's assigned color
 const uint16_t kSecondaryColor = ViewColors::toRGB565(ViewColors::NotificationSecondary);  // pale accent for secondary text
 constexpr uint16_t kBackground = 0x1082;                                                   // near-black blue-grey
-
-// Pulls a human-readable title/message out of a Command's loosely-typed
-// value: a plain string is used as the message directly, an object looks
-// for "title"/"message" (falling back to "text") keys, anything else (or a
-// missing key) falls back to the supplied default.
-String extractField(const JsonVariantConst& value, const char* key, const String& fallback) {
-    if (value.is<JsonObjectConst>()) {
-        JsonObjectConst obj = value.as<JsonObjectConst>();
-        if (obj[key].is<const char*>()) {
-            return obj[key].as<String>();
-        }
-    }
-    return fallback;
-}
-
-String extractMessage(const JsonVariantConst& value, const String& fallback) {
-    if (value.is<const char*>()) {
-        return value.as<String>();
-    }
-    return extractField(value, "message", extractField(value, "text", fallback));
-}
-
-// Reads an optional "soundEnabled" field out of the Command's `value` object.
-// Accepts a real JSON boolean (expected) or a "true"/"false" string, so it
-// tolerates either representation from the orchestrator.
-bool extractSoundEnabled(const JsonVariantConst& value, bool fallback) {
-    if (value.is<JsonObjectConst>()) {
-        JsonVariantConst v = value.as<JsonObjectConst>()["soundEnabled"];
-        if (v.is<bool>()) {
-            return v.as<bool>();
-        }
-        if (v.is<const char*>()) {
-            return String(v.as<const char*>()).equalsIgnoreCase("true");
-        }
-    }
-    return fallback;
-}
-}  // namespace
-
-namespace {
-DeviceConfiguration buildNotificationViewTemplate() {
-    DeviceConfiguration config;
-    config.id = riot2::newId();
-    config.name = "Notification View";
-    config.classFullName = "RIoT2.Ard.M5Dial.Node.NotificationView";
-    config.deviceParameters = {{"durationMs", "4000"}};
-
-    CommandTemplate cmd;
-    cmd.id = riot2::newId();
-    cmd.type = riot2::ValueType::Entity;  // value is { title, message, subHeader, soundEnabled }
-    cmd.name = "Notification";
-    cmd.address = "notice-1";
-    config.commandTemplates.push_back(cmd);
-    return config;
-}
 }  // namespace
 
 void NotificationView::begin(const DeviceConfiguration& config) {
-    _title = "Notification";
-    _message = "";
-    _subHeader = "";
-
-    String durationParam = findParameter(config.deviceParameters, "durationMs", "");
-    _durationMs = durationParam.length() > 0 ? static_cast<unsigned long>(durationParam.toInt()) : 4000;
-    if (_durationMs == 0) {
-        _durationMs = 4000;
-    }
-
-    _soundEnabled = false;
-    _dismissed = true;
+    _model.begin(config);
 }
 
 void NotificationView::onEnter() {
-    _dismissed = false;
-    _shownAtMs = millis();
-    if (_soundEnabled) {
+    _model.show();
+    if (_model.soundEnabled()) {
         Buzzer::confirm();
     }
 }
@@ -95,18 +26,11 @@ void NotificationView::onEnter() {
 void NotificationView::onTouch(int x, int y) {
     (void)x;
     (void)y;
-    _dismissed = true;  // tapping dismisses it early
+    _model.dismiss();  // tapping dismisses it early
 }
 
 void NotificationView::onCommand(const Command& command) {
-    _title = extractField(command.value, "title", "Notification");
-    _message = extractMessage(command.value, "");
-    _subHeader = extractField(command.value, "subHeader", "");
-    _soundEnabled = extractSoundEnabled(command.value, false);
-}
-
-bool NotificationView::wantsExit() {
-    return _dismissed || (millis() - _shownAtMs) >= _durationMs;
+    _model.onCommand(command);
 }
 
 void NotificationView::render(M5Canvas& canvas) {
@@ -127,39 +51,34 @@ void NotificationView::render(M5Canvas& canvas) {
     canvas.setTextDatum(middle_center);
     canvas.setTextColor(WHITE, kBackground);
     canvas.setTextSize(2);
-    canvas.drawString(_title, cx, cy);
+    canvas.drawString(_model.title(), cx, cy);
 
-    if (_message.length() > 0) {
+    if (_model.message().length() > 0) {
         canvas.setTextColor(kSecondaryColor, kBackground);
         canvas.setTextSize(1);
-        canvas.drawString(_message, cx, cy + 26);
+        canvas.drawString(_model.message(), cx, cy + 26);
     }
 
-    if (_subHeader.length() > 0) {
+    if (_model.subHeader().length() > 0) {
         canvas.setTextColor(kSecondaryColor, kBackground);
         canvas.setTextSize(1);
-        canvas.drawString(_subHeader, cx, cy + 44);
+        canvas.drawString(_model.subHeader(), cx, cy + 44);
     }
 
     // Thin progress bar showing time remaining before auto-dismiss.
-    unsigned long elapsed = millis() - _shownAtMs;
-    float remaining = _durationMs == 0 ? 0.f : 1.f - static_cast<float>(elapsed) / static_cast<float>(_durationMs);
-    if (remaining < 0.f) remaining = 0.f;
-    if (remaining > 1.f) remaining = 1.f;
-
     int barWidth = 140;
     int barX = cx - barWidth / 2;
     int barY = canvas.height() - 28;
     canvas.drawRect(barX, barY, barWidth, 6, kSecondaryColor);
-    canvas.fillRect(barX + 1, barY + 1, static_cast<int>((barWidth - 2) * remaining), 4, kNotificationColor);
+    canvas.fillRect(barX + 1, barY + 1, static_cast<int>((barWidth - 2) * _model.remaining()), 4, kNotificationColor);
 }
 
 namespace {
 struct NotificationViewRegistrar {
     NotificationViewRegistrar() {
-        ViewFactory::instance().registerCreator("RIoT2.Ard.M5Dial.Node.NotificationView",
-                                              []() { return std::make_unique<NotificationView>(); },
-                                              buildNotificationViewTemplate);
+        ViewFactory::instance().registerCreator(
+            "RIoT2.Ard.M5Dial.Node.NotificationView", []() { return std::make_unique<NotificationView>(); },
+            []() { return riot2::views::NotificationModel::buildTemplate("RIoT2.Ard.M5Dial.Node.NotificationView"); });
     }
 } notificationViewRegistrar;
 }  // namespace

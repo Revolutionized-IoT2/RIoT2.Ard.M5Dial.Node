@@ -2,61 +2,27 @@
 
 #include <memory>
 
-#include <riot2/Uuid.h>
-
 #include "ViewColors.h"
 #include "ViewFactory.h"
 
 namespace {
-constexpr size_t kMaxSlots = 4;
 const uint16_t kValueColor = ViewColors::toRGB565(ViewColors::Value);           // this view's assigned color
 const uint16_t kLabelColor = ViewColors::toRGB565(ViewColors::ValueSecondary);  // pale label accent
-
-DeviceConfiguration buildValueViewTemplate() {
-    DeviceConfiguration config;
-    config.id = riot2::newId();
-    config.name = "Value View";
-    config.classFullName = "RIoT2.Ard.M5Dial.Node.ValueView";
-    config.deviceParameters = {{"unit1", "\u00b0C"}, {"unit2", "%"}};
-
-    for (const char* label : {"Value 1", "Value 2"}) {
-        CommandTemplate cmd;
-        cmd.id = riot2::newId();
-        cmd.type = riot2::ValueType::Number;
-        cmd.name = label;
-        config.commandTemplates.push_back(cmd);
-    }
-    return config;
-}
 }  // namespace
 
 void ValueView::begin(const DeviceConfiguration& config) {
-    _slots.clear();
-
-    for (size_t i = 0; i < config.commandTemplates.size() && i < kMaxSlots; ++i) {
-        const auto& cmd = config.commandTemplates[i];
-        Slot slot;
-        slot.id = cmd.id;
-        slot.name = cmd.name;
-        slot.unit = findParameter(config.deviceParameters, "unit" + String(i + 1));
-        _slots.push_back(slot);
-    }
+    _model.begin(config);
 }
 
 void ValueView::onCommand(const Command& command) {
-    for (auto& slot : _slots) {
-        if (slot.id == command.id) {
-            slot.value = command.value.as<String>();
-            return;
-        }
-    }
+    _model.onCommand(command);
 }
 
 void ValueView::render(M5Canvas& canvas) {
     canvas.fillScreen(BLACK);
     canvas.setTextDatum(middle_center);
 
-    if (_slots.empty()) {
+    if (_model.size() == 0) {
         canvas.setTextColor(WHITE);
         canvas.setTextSize(2);
         canvas.drawString("No values", canvas.width() / 2, canvas.height() / 2);
@@ -66,7 +32,7 @@ void ValueView::render(M5Canvas& canvas) {
     int cx = canvas.width() / 2;
     int cy = canvas.height() / 2;
 
-    if (_slots.size() == kMaxSlots) {
+    if (_model.size() == riot2::views::ValueModel::kMaxSlots) {
         // Exactly 4 values: one on top, two side-by-side in the middle, one
         // on the bottom (compass style) - a plain vertical stack of 4 rows
         // would be too cramped to read on a 240x240 round display.
@@ -75,47 +41,43 @@ void ValueView::render(M5Canvas& canvas) {
             int rowCenterY;
         };
         const int offsetX = 45;
-        const Position positions[kMaxSlots] = {
+        const Position positions[riot2::views::ValueModel::kMaxSlots] = {
             {cx, cy - 60},           // top
             {cx - offsetX, cy + 4},  // middle-left
             {cx + offsetX, cy + 4},  // middle-right
             {cx, cy + 68},           // bottom
         };
-
-        for (size_t i = 0; i < _slots.size(); ++i) {
+        for (size_t i = 0; i < _model.size(); ++i) {
             const Position& pos = positions[i];
-
             canvas.setTextColor(kLabelColor);
             canvas.setTextSize(1);
-            canvas.drawString(_slots[i].name, pos.centerX, pos.rowCenterY - 14);
-
+            canvas.drawString(_model.name(i), pos.centerX, pos.rowCenterY - 14);
             canvas.setTextColor(kValueColor);
             canvas.setTextSize(2);
-            canvas.drawString(_slots[i].value + _slots[i].unit, pos.centerX, pos.rowCenterY + 10);
+            canvas.drawString(_model.text(i), pos.centerX, pos.rowCenterY + 10);
         }
         return;
     }
 
     // Fewer than 4 values: stack them in a centered vertical column.
-    int rowHeight = canvas.height() / static_cast<int>(_slots.size());
-    for (size_t i = 0; i < _slots.size(); ++i) {
+    int rowHeight = canvas.height() / static_cast<int>(_model.size());
+    for (size_t i = 0; i < _model.size(); ++i) {
         int centerY = static_cast<int>(i) * rowHeight + rowHeight / 2;
-
         canvas.setTextColor(kLabelColor);
         canvas.setTextSize(1);
-        canvas.drawString(_slots[i].name, cx, centerY - 14);
-
+        canvas.drawString(_model.name(i), cx, centerY - 14);
         canvas.setTextColor(kValueColor);
         canvas.setTextSize(3);
-        canvas.drawString(_slots[i].value + _slots[i].unit, cx, centerY + 10);
+        canvas.drawString(_model.text(i), cx, centerY + 10);
     }
 }
 
 namespace {
 struct ValueViewRegistrar {
     ValueViewRegistrar() {
-        ViewFactory::instance().registerCreator("RIoT2.Ard.M5Dial.Node.ValueView",
-                                              []() { return std::make_unique<ValueView>(); }, buildValueViewTemplate);
+        ViewFactory::instance().registerCreator(
+            "RIoT2.Ard.M5Dial.Node.ValueView", []() { return std::make_unique<ValueView>(); },
+            []() { return riot2::views::ValueModel::buildTemplate("RIoT2.Ard.M5Dial.Node.ValueView"); });
     }
 } valueViewRegistrar;
 }  // namespace

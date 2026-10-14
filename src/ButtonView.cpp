@@ -3,8 +3,6 @@
 #include <memory>
 #include <vector>
 
-#include <riot2/Uuid.h>
-
 #include "Buzzer.h"
 #include "ViewColors.h"
 #include "ViewFactory.h"
@@ -13,7 +11,6 @@ namespace {
 constexpr int kDisplaySize = 240;
 const uint16_t kHeaderColor = ViewColors::toRGB565(ViewColors::Button);            // this view's assigned color
 const uint16_t kSubHeaderColor = ViewColors::toRGB565(ViewColors::ButtonSecondary);  // pale companion color
-constexpr unsigned long kFlashMs = 200;
 constexpr int kButtonWidth = 100;
 constexpr int kButtonHeight = 56;
 constexpr int kGap = 12;
@@ -87,31 +84,11 @@ void drawFittedButtonText(M5Canvas& canvas, const String& text, int cx, int cy, 
 }  // namespace
 
 void ButtonView::begin(const DeviceConfiguration& config) {
-    _slots.clear();
-    _header = findParameter(config.deviceParameters, "header", config.name);
-    _subHeader = findParameter(config.deviceParameters, "subHeader", "");
-
-    for (const auto& report : config.reportTemplates) {
-        Slot slot;
-        slot.report = report;
-
-        for (const auto& cmd : config.commandTemplates) {
-            if (report.address.length() > 0 && cmd.address == report.address) {
-                slot.command = cmd;
-                slot.hasCommand = true;
-                break;
-            }
-        }
-
-        _slots.push_back(slot);
-        if (_slots.size() >= 4) {
-            break;
-        }
-    }
+    _model.begin(config);
 }
 
 int ButtonView::slotAt(int x, int y) const {
-    std::vector<Rect> rects = layoutButtons(_slots.size(), kDisplaySize, kDisplaySize);
+    std::vector<Rect> rects = layoutButtons(_model.size(), kDisplaySize, kDisplaySize);
     for (size_t i = 0; i < rects.size(); ++i) {
         const Rect& r = rects[i];
         if (x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h) {
@@ -123,93 +100,61 @@ int ButtonView::slotAt(int x, int y) const {
 
 void ButtonView::onTouch(int x, int y) {
     int index = slotAt(x, y);
-    if (index < 0) {
-        return;
+    Report report;
+    if (index >= 0 && _model.press(static_cast<size_t>(index), report)) {
+        Buzzer::tap();
+        publishReport(report);
     }
-
-    _slots[index].flashUntilMs = millis() + kFlashMs;
-    Buzzer::tap();
-    publishReport(Report{_slots[index].report.id, "true"});
 }
 
 void ButtonView::onCommand(const Command& command) {
-    for (auto& slot : _slots) {
-        if (slot.hasCommand && slot.command.id == command.id) {
-            bool value = command.value.is<bool>() ? command.value.as<bool>() : command.value.as<int>() != 0;
-            slot.active = value;
-            return;
-        }
-    }
+    _model.onCommand(command);
 }
 
 void ButtonView::render(M5Canvas& canvas) {
     canvas.fillScreen(BLACK);
     canvas.setTextDatum(middle_center);
 
-    if (_header.length() > 0) {
+    if (_model.header().length() > 0) {
         canvas.setTextColor(kHeaderColor, BLACK);
         canvas.setTextSize(3);
-        canvas.drawString(_header, canvas.width() / 2, 30);
+        canvas.drawString(_model.header(), canvas.width() / 2, 30);
     }
 
-    if (_slots.empty()) {
+    if (_model.size() == 0) {
         canvas.setTextColor(WHITE, BLACK);
         canvas.setTextSize(2);
         canvas.drawString("No buttons", canvas.width() / 2, canvas.height() / 2);
         return;
     }
 
-    std::vector<Rect> rects = layoutButtons(_slots.size(), canvas.width(), canvas.height());
-    unsigned long now = millis();
+    std::vector<Rect> rects = layoutButtons(_model.size(), canvas.width(), canvas.height());
 
-    for (size_t i = 0; i < _slots.size(); ++i) {
+    for (size_t i = 0; i < _model.size(); ++i) {
         const Rect& r = rects[i];
-        bool on = _slots[i].active || now < _slots[i].flashUntilMs;
+        bool on = _model.isLit(i);
         uint16_t bgColor = on ? kHeaderColor : kSubHeaderColor;
         uint16_t textColor = on ? WHITE : BLACK;
 
         canvas.fillRoundRect(r.x, r.y, r.w, r.h, kCornerRadius, bgColor);
-        drawFittedButtonText(canvas, _slots[i].report.name, r.x + r.w / 2, r.y + r.h / 2, r.w - 12, textColor, bgColor);
+        drawFittedButtonText(canvas, _model.name(i), r.x + r.w / 2, r.y + r.h / 2, r.w - 12, textColor, bgColor);
     }
 
-    if (_subHeader.length() > 0) {
+    if (_model.subHeader().length() > 0) {
         canvas.setTextColor(kSubHeaderColor, BLACK);
         canvas.setTextSize(1);
-        canvas.drawString(_subHeader, canvas.width() / 2, canvas.height() - 20);
+        canvas.drawString(_model.subHeader(), canvas.width() / 2, canvas.height() - 20);
     }
 }
 
 namespace {
-DeviceConfiguration buildButtonViewTemplate() {
-    DeviceConfiguration config;
-    config.id = riot2::newId();
-    config.name = "Button View";
-    config.classFullName = "RIoT2.Ard.M5Dial.Node.ButtonView";
-    config.deviceParameters = {{"header", "Buttons"}, {"subHeader", "tap a button"}};
-
-    for (const char* address : {"btn-1", "btn-2"}) {
-        CommandTemplate cmd;
-        cmd.id = riot2::newId();
-        cmd.type = riot2::ValueType::Boolean;
-        cmd.name = String("Button ") + address;
-        cmd.address = address;
-        config.commandTemplates.push_back(cmd);
-
-        ReportTemplate report;
-        report.id = riot2::newId();
-        report.type = riot2::ValueType::Boolean;
-        report.name = String("Button ") + address;
-        report.address = address;
-        report.parameters = {{"icon", "bulb"}};
-        config.reportTemplates.push_back(report);
-    }
-    return config;
-}
-
 struct ButtonViewRegistrar {
     ButtonViewRegistrar() {
-        ViewFactory::instance().registerCreator("RIoT2.Ard.M5Dial.Node.ButtonView",
-                                              []() { return std::make_unique<ButtonView>(); }, buildButtonViewTemplate);
+        ViewFactory::instance().registerCreator(
+            "RIoT2.Ard.M5Dial.Node.ButtonView", []() { return std::make_unique<ButtonView>(); },
+            []() {
+                return riot2::views::ButtonModel::buildTemplate("RIoT2.Ard.M5Dial.Node.ButtonView", {{"icon", "bulb"}});
+            });
     }
 } buttonViewRegistrar;
 }  // namespace

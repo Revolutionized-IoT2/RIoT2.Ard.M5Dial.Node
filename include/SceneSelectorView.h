@@ -2,13 +2,14 @@
 
 #include <Arduino.h>
 
-#include <vector>
+#include <riot2/views/SceneSelectorModel.h>
 
 #include "IView.h"
 
-// Scrollable text list of scenes/presets, one per reportTemplate. Tap the
-// view to start browsing, rotate the dial to move the highlight, tap again
-// to confirm - publishes a Report (id -> "true") for the selected
+// Scrollable text list of scenes/presets (the shared
+// riot2::views::SceneSelectorModel), one per reportTemplate. Tap the view to
+// start browsing, rotate the dial to move the highlight, tap again to
+// confirm - publishes a Report (id -> "true") for the selected
 // reportTemplate, then returns to the carousel.
 class SceneSelectorView : public IView {
 public:
@@ -19,7 +20,7 @@ public:
     void render(M5Canvas& canvas) override;
 
 private:
-    std::vector<ReportTemplate> _items;
+    riot2::views::SceneSelectorModel _model;
     int _selectedIndex = 0;
     int _pendingIndex = 0;
     bool _browsing = false;

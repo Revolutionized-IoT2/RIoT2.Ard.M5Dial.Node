@@ -2,16 +2,17 @@
 
 #include <Arduino.h>
 
-#include <vector>
+#include <riot2/views/ButtonModel.h>
 
 #include "IView.h"
 
-// 1-4 momentary buttons arranged in a centered grid: a single button or a
-// centered pair for 1-2 buttons, a 2x2 grid for 3-4. Tapping a button
-// publishes a Report (id -> "true") for its reportTemplate; an inbound
-// Command addressed to the matching commandTemplate.id (correlated by
-// shared `address`) sets that button's highlighted/on-off visual state.
-// The view's own header/subheader text come from the "header"/"subHeader"
+// 1-4 momentary buttons (the shared riot2::views::ButtonModel) arranged in
+// a centered grid: a single button or a centered pair for 1-2 buttons, a
+// 2x2 grid for 3-4. Tapping a button publishes a Report (id -> "true") for
+// its reportTemplate and briefly lights it; an inbound Command addressed to
+// the matching commandTemplate.id (correlated by shared `address`) sets
+// that button's highlighted/on-off visual state. The view's own
+// header/subheader text come from the "header"/"subHeader"
 // deviceParameters.
 class ButtonView : public IView {
 public:
@@ -21,17 +22,7 @@ public:
     void render(M5Canvas& canvas) override;
 
 private:
-    struct Slot {
-        ReportTemplate report;
-        CommandTemplate command;
-        bool hasCommand = false;
-        bool active = false;
-        unsigned long flashUntilMs = 0;
-    };
-
-    std::vector<Slot> _slots;
-    String _header;
-    String _subHeader;
+    riot2::views::ButtonModel _model;
 
     int slotAt(int x, int y) const;
 };

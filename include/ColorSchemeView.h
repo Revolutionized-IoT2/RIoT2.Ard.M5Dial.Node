@@ -2,6 +2,8 @@
 
 #include <Arduino.h>
 
+#include <riot2/views/ColorSchemeModel.h>
+
 #include "IView.h"
 
 // Two-stage color picker:
@@ -14,21 +16,17 @@
 //     on the outer rim to confirm that specific shade (the center swatch
 //     then shows the chosen shade too). Either tap publishes the result as
 //     a "#RRGGBB" hex string Report and returns to the idle preview.
+// The color and the picking state live in the shared
+// riot2::views::ColorSchemeModel (shade picker).
 class ColorSchemeView : public IView {
 public:
     void begin(const DeviceConfiguration& config) override;
     void onTouch(int x, int y) override;
     void onEncoderChange(int delta) override;
     void onCommand(const Command& command) override;
-    bool isInteracting() const override { return _picking; }
+    bool isInteracting() const override { return _model.isPicking(); }
     void render(M5Canvas& canvas) override;
 
 private:
-    String _reportId;
-    String _commandId;
-    float _hue = 0.0f;        // selected main hue, degrees 0-359
-    float _shadeT = 0.5f;     // selected shade position: 0=black, 0.5=pure hue, 1=white
-    float _pendingHue = 0.0f;  // live hue while picking (one of the 12 main colors)
-    int _pendingColorIndex = 0;  // index (0-11) of the pending main color
-    bool _picking = false;
+    riot2::views::ColorSchemeModel _model{riot2::views::ColorSchemeModel::Picker::Shade};
 };

@@ -2,8 +2,6 @@
 
 #include <memory>
 
-#include <riot2/Uuid.h>
-
 #include "Buzzer.h"
 #include "ViewColors.h"
 #include "ViewFactory.h"
@@ -12,105 +10,61 @@ namespace {
 const uint16_t kTrackColor = ViewColors::toRGB565(ViewColors::SliderSecondary);  // pale track, per CLAUDE.md
 const uint16_t kValueColor = ViewColors::toRGB565(ViewColors::Slider);  // this view's assigned color
 const uint16_t kAdjustColor = ViewColors::toRGB565(ViewColors::lighten(ViewColors::Slider, 0.5f));  // brighter, on-theme
-
-DeviceConfiguration buildSliderViewTemplate() {
-    DeviceConfiguration config;
-    config.id = riot2::newId();
-    config.name = "Slider View";
-    config.classFullName = "RIoT2.Ard.M5Dial.Node.SliderView";
-    config.deviceParameters = {{"min", "0"}, {"max", "100"}, {"step", "1"}, {"unit", ""}};
-
-    CommandTemplate cmd;
-    cmd.id = riot2::newId();
-    cmd.type = riot2::ValueType::Number;
-    cmd.name = "Slider";
-    cmd.address = "slider-1";
-    config.commandTemplates.push_back(cmd);
-
-    ReportTemplate report;
-    report.id = riot2::newId();
-    report.type = riot2::ValueType::Number;
-    report.name = "Slider";
-    report.address = "slider-1";
-    config.reportTemplates.push_back(report);
-    return config;
-}
 }  // namespace
 
 void SliderView::begin(const DeviceConfiguration& config) {
-    _name = config.name;
-    _commandId = config.commandTemplates.empty() ? "" : config.commandTemplates[0].id;
-    _reportId = config.reportTemplates.empty() ? "" : config.reportTemplates[0].id;
-
-    _min = findParameter(config.deviceParameters, "min", "0").toInt();
-    _max = findParameter(config.deviceParameters, "max", "100").toInt();
-    _step = findParameter(config.deviceParameters, "step", "1").toInt();
-    if (_step <= 0) {
-        _step = 1;
-    }
-    if (_max <= _min) {
-        _max = _min + 1;
-    }
-    _unit = findParameter(config.deviceParameters, "unit", "");
-
-    _value = clamp(_min);
-    _pendingValue = _value;
+    _model.begin(config);
+    _pendingValue = _model.value();
     _adjusting = false;
-}
-
-int SliderView::clamp(int value) const {
-    if (value < _min) {
-        return _min;
-    }
-    if (value > _max) {
-        return _max;
-    }
-    return value;
 }
 
 void SliderView::onTouch(int x, int y) {
     (void)x;
     (void)y;
-    if (_reportId.length() == 0) {
+    if (!_model.canReport()) {
         return;
     }
 
     if (!_adjusting) {
         _adjusting = true;
-        _pendingValue = _value;
-    } else {
-        _adjusting = false;
-        _value = _pendingValue;
+        _pendingValue = _model.value();
+        return;
+    }
+    _adjusting = false;
+    Report report;
+    if (_model.set(_pendingValue, report)) {
         Buzzer::confirm();
-        publishReport(Report{_reportId, String(_value)});
+        publishReport(report);
     }
 }
 
 void SliderView::onEncoderChange(int delta) {
-    _pendingValue = clamp(_pendingValue + (delta > 0 ? _step : -_step));
+    // On the step grid, so the value shown is the value reported.
+    _pendingValue = _model.snap(_pendingValue + (delta > 0 ? _model.step() : -_model.step()));
 }
 
 void SliderView::onCommand(const Command& command) {
-    if (_adjusting || _commandId.length() == 0 || command.id != _commandId) {
-        return;
+    // A command doesn't move the slider under the user's finger.
+    if (!_adjusting) {
+        _model.onCommand(command);
     }
-    _value = clamp(command.value.as<int>());
 }
 
 void SliderView::render(M5Canvas& canvas) {
     canvas.fillScreen(BLACK);
 
-    int displayValue = _adjusting ? _pendingValue : _value;
+    int displayValue = _adjusting ? _pendingValue : _model.value();
     int cx = canvas.width() / 2;
     int cy = canvas.height() / 2;
 
-    float fraction = static_cast<float>(displayValue - _min) / static_cast<float>(_max - _min);
+    float fraction = static_cast<float>(displayValue - _model.minimum()) /
+                     static_cast<float>(_model.maximum() - _model.minimum());
     uint16_t fillColor = _adjusting ? kAdjustColor : kValueColor;
 
     canvas.setTextColor(WHITE, BLACK);
     canvas.setTextDatum(middle_center);
     canvas.setTextSize(2);
-    canvas.drawString(_name, cx, cy - 50);
+    canvas.drawString(_model.name(), cx, cy - 50);
 
     // Horizontal pill-shaped track (like a classic volume slider): dark
     // unfilled background, a filled portion in the view's accent color, and
@@ -141,7 +95,7 @@ void SliderView::render(M5Canvas& canvas) {
     canvas.drawCircle(thumbX, cy, thumbRadius, kTrackColor);
 
     canvas.setTextSize(2);
-    String valueText = String(displayValue) + (_unit.length() ? " " + _unit : "");
+    String valueText = String(displayValue) + (_model.unit().length() ? " " + _model.unit() : "");
     canvas.drawString(valueText, cx, cy + 45);
 
     canvas.setTextSize(1);
@@ -153,8 +107,9 @@ void SliderView::render(M5Canvas& canvas) {
 namespace {
 struct SliderViewRegistrar {
     SliderViewRegistrar() {
-        ViewFactory::instance().registerCreator("RIoT2.Ard.M5Dial.Node.SliderView",
-                                              []() { return std::make_unique<SliderView>(); }, buildSliderViewTemplate);
+        ViewFactory::instance().registerCreator(
+            "RIoT2.Ard.M5Dial.Node.SliderView", []() { return std::make_unique<SliderView>(); },
+            []() { return riot2::views::SliderModel::buildTemplate("RIoT2.Ard.M5Dial.Node.SliderView"); });
     }
 } sliderViewRegistrar;
 }  // namespace
