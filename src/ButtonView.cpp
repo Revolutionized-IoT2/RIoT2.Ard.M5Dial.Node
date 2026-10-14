@@ -190,15 +190,14 @@ DeviceConfiguration buildButtonViewTemplate() {
     for (const char* address : {"btn-1", "btn-2"}) {
         CommandTemplate cmd;
         cmd.id = riot2::newId();
-        cmd.type = "0";
+        cmd.type = riot2::ValueType::Boolean;
         cmd.name = String("Button ") + address;
         cmd.address = address;
-        cmd.valueType = 0;
         config.commandTemplates.push_back(cmd);
 
         ReportTemplate report;
         report.id = riot2::newId();
-        report.type = "0";
+        report.type = riot2::ValueType::Boolean;
         report.name = String("Button ") + address;
         report.address = address;
         report.parameters = {{"icon", "bulb"}};

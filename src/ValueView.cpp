@@ -22,9 +22,8 @@ DeviceConfiguration buildValueViewTemplate() {
     for (const char* label : {"Value 1", "Value 2"}) {
         CommandTemplate cmd;
         cmd.id = riot2::newId();
-        cmd.type = "2";
+        cmd.type = riot2::ValueType::Number;
         cmd.name = label;
-        cmd.valueType = 2;
         config.commandTemplates.push_back(cmd);
     }
     return config;

@@ -51,7 +51,7 @@ Device commands, only when an M5Dial is connected and flashing/monitoring was re
 
 | Path | Contents |
 |---|---|
-| `platformio.ini` | `m5stack-stamps3` environment, C++14 flags, shared-library path and board libraries |
+| `platformio.ini` | `m5stack-stamps3` environment (platform `espressif32` pinned for OTA rollback), C++14 flags, shared-library path and board libraries |
 | `MANIFEST_NAME`, `VERSION` | Inputs to the shared manifest generation script |
 | `include/*View.h`, `src/*View.cpp` | M5Dial canvas views and templates |
 | `include/ViewManager.h`, `src/ViewManager.cpp` | Carousel, focus, popups, hidden timers, RFID/BLE event routing |
@@ -77,6 +77,9 @@ Device commands, only when an M5Dial is connected and flashing/monitoring was re
   build both M5Dial and M5Core2.
 - Keep encoder input on `ESP32Encoder`/PCNT, not a software decoder.
 - Do not assign `system.ota` to a view command template.
+- Keep `OtaRollback::begin()` first in `setup()`, and `OtaRollback::markHealthy()` right after a
+  successful `requestConfiguration()` in `loop()` (see RIoT2.Ard.Shared). Don't change the pinned
+  `espressif32` platform without checking that its bootloader still has app rollback enabled.
 - Do not turn RFID or BLE into unconditional hardware work; RFID is activated only by RFID views,
   and BLE starts only after a BLE-consuming view exists.
 - Do not edit vendored `.pio\libdeps` content.
@@ -93,13 +96,13 @@ Device commands, only when an M5Dial is connected and flashing/monitoring was re
   diagnostics or idle state is displayed.
 - RFID repeat suppression is three seconds for the same UID; BLE has no corresponding stop path
   after it starts.
-- Firmware template `type` values downloaded from the orchestrator are lost because shared parsing
-  reads `type` as a string while the contract sends a number (configuration divergence C2).
+- A new OTA image rolls back unless it fetches its configuration within 3 minutes
+  ([README](README.md#automatic-rollback)). Restarting or factory-resetting the device during that
+  time rolls it back as well.
+- Template `type` is a number (`riot2::ValueType::Number`, not `"2"`); there is no `valueType`.
 
 ## Related work
 
-- Backlog item [6](https://github.com/Revolutionized-IoT2/.github/blob/main/docs/backlog/open-issues.md):
-  OTA rollback policy.
 - Backlog item [15](https://github.com/Revolutionized-IoT2/.github/blob/main/docs/backlog/open-issues.md):
   duplicated firmware views and runtime wiring.
 - Optional hardening [S9](https://github.com/Revolutionized-IoT2/.github/blob/main/docs/backlog/optional-hardening.md):

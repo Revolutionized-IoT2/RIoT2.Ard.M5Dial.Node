@@ -22,15 +22,14 @@ DeviceConfiguration buildSliderViewTemplate() {
 
     CommandTemplate cmd;
     cmd.id = riot2::newId();
-    cmd.type = "2";
+    cmd.type = riot2::ValueType::Number;
     cmd.name = "Slider";
     cmd.address = "slider-1";
-    cmd.valueType = 2;
     config.commandTemplates.push_back(cmd);
 
     ReportTemplate report;
     report.id = riot2::newId();
-    report.type = "2";
+    report.type = riot2::ValueType::Number;
     report.name = "Slider";
     report.address = "slider-1";
     config.reportTemplates.push_back(report);

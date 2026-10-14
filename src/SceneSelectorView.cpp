@@ -93,7 +93,7 @@ DeviceConfiguration buildSceneSelectorViewTemplate() {
     for (const char* sceneName : {"Movie Night", "Good Morning", "Good Night"}) {
         ReportTemplate report;
         report.id = riot2::newId();
-        report.type = "1";
+        report.type = riot2::ValueType::Text;
         report.name = sceneName;
         config.reportTemplates.push_back(report);
     }

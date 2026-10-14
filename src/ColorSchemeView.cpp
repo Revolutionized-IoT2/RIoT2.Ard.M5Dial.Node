@@ -328,15 +328,14 @@ DeviceConfiguration buildColorSchemeViewTemplate() {
 
     CommandTemplate cmd;
     cmd.id = riot2::newId();
-    cmd.type = "1";
+    cmd.type = riot2::ValueType::Text;  // hex color string, e.g. "#FF8800"
     cmd.name = "Color";
     cmd.address = "lamp-1";
-    cmd.valueType = 1;  // Text - hex color string, e.g. "#FF8800"
     config.commandTemplates.push_back(cmd);
 
     ReportTemplate report;
     report.id = riot2::newId();
-    report.type = "1";
+    report.type = riot2::ValueType::Text;
     report.name = "Color";
     report.address = "lamp-1";
     config.reportTemplates.push_back(report);

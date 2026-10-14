@@ -15,6 +15,7 @@
 #include <riot2/MqttConnection.h>
 #include <riot2/NodeConfig.h>
 #include <riot2/OrchestratorClient.h>
+#include <riot2/OtaRollback.h>
 #include <riot2/OtaUpdater.h>
 #include <riot2/PeripheralFactory.h>
 #include <riot2/PeripheralManager.h>
@@ -473,6 +474,8 @@ void pollRfid() {
 
 void setup() {
     Serial.begin(115200);
+    // First, so a new OTA image's trial time starts at boot (see riot2/OtaRollback.h).
+    OtaRollback::begin();
 
     PeripheralFactory::instance().registerCreator(
         "RIoT2.Ard.M5Dial.Node.GpioPeripheral", [] { return std::make_unique<GpioPeripheral>(kM5DialGroveMap); },
@@ -485,17 +488,16 @@ void setup() {
 
             ReportTemplate report;
             report.id = riot2::newId();
-            report.type = "0";
+            report.type = riot2::ValueType::Boolean;
             report.name = "Doorbell Button";
             report.address = "A1";
             config.reportTemplates.push_back(report);
 
             CommandTemplate cmd;
             cmd.id = riot2::newId();
-            cmd.type = "0";
+            cmd.type = riot2::ValueType::Boolean;
             cmd.name = "Porch Relay";
             cmd.address = "A2";
-            cmd.valueType = 0;
             config.commandTemplates.push_back(cmd);
             return config;
         });
@@ -591,8 +593,14 @@ void loop() {
     // Runs the (blocking) configuration fetch requested by
     // handleConfigurationMessage(), outside of mqtt.loop()'s own callback
     // dispatch. Failed attempts retry with bounded backoff while Wi-Fi is up.
+    // A successful fetch (Wi-Fi, MQTT and the orchestrator all work, and the
+    // carousel was rebuilt) is what keeps a new OTA image.
     configurationRetry.loop(wifi.isConnected(), [](const String& url) {
-        return orchestratorClient.requestConfiguration(url, config.id);
+        bool fetched = orchestratorClient.requestConfiguration(url, config.id);
+        if (fetched) {
+            OtaRollback::markHealthy();
+        }
+        return fetched;
     });
 
     viewManager.loop();

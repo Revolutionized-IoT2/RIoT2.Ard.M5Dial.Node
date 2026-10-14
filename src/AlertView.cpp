@@ -59,10 +59,9 @@ DeviceConfiguration buildAlertViewTemplate() {
 
     CommandTemplate cmd;
     cmd.id = riot2::newId();
-    cmd.type = "3";
+    cmd.type = riot2::ValueType::Entity;  // value is { title, message, subHeader, soundEnabled }
     cmd.name = "Alert";
     cmd.address = "alert-1";
-    cmd.valueType = 3;  // Entity - value is { title, message, subHeader, soundEnabled }
     config.commandTemplates.push_back(cmd);
     return config;
 }

@@ -22,7 +22,7 @@ DeviceConfiguration buildRFIDViewTemplate() {
 
     ReportTemplate report;
     report.id = riot2::newId();
-    report.type = "1";
+    report.type = riot2::ValueType::Text;
     report.name = "RFID Tag";
     config.reportTemplates.push_back(report);
     return config;
