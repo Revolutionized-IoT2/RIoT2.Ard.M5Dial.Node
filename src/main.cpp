@@ -1,473 +1,81 @@
 #include <Arduino.h>
-#include <ArduinoJson.h>
-#include <ESP32Encoder.h>
 #include <M5Dial.h>
-#include <WiFi.h>
-#include <time.h>
 
-#include <memory>
+#include <riot2/NodeRuntime.h>
 
-#include <riot2/BleScanner.h>
-#include <riot2/Command.h>
-#include <riot2/ConfigTemplateServer.h>
-#include <riot2/ConfigurationRetry.h>
-#include <riot2/GpioPeripheral.h>
-#include <riot2/MqttConnection.h>
-#include <riot2/NodeConfig.h>
-#include <riot2/OrchestratorClient.h>
-#include <riot2/OtaRollback.h>
-#include <riot2/OtaUpdater.h>
-#include <riot2/PeripheralFactory.h>
-#include <riot2/PeripheralManager.h>
-#include <riot2/ProvisioningPortal.h>
-#include <riot2/Report.h>
-#include <riot2/Uuid.h>
-#include <riot2/WifiConnection.h>
-
+#include "BoardPeripherals.h"
 #include "Buzzer.h"
+#include "DialInput.h"
+#include "DiagnosticsScreen.h"
+#include "DisplayPower.h"
 #include "Manifest.h"
-#include "ViewColors.h"
+#include "RfidReader.h"
+#include "StatusScreen.h"
 #include "ViewFactory.h"
 #include "ViewManager.h"
 
+// Board setup, the carousel and the dial's inputs. The node lifecycle (Wi-Fi, provisioning, MQTT,
+// configuration, OTA, peripherals, BLE) is riot2::NodeRuntime in RIoT2.Ard.Shared.
 namespace {
 
-// Long-press on the M5Dial's physical button (BtnA) to clear NodeConfig and
-// re-enter provisioning mode on next boot.
-constexpr unsigned long kFactoryResetHoldMs = 5000;
-
-// Medium-press to toggle the on-device diagnostics overlay (Wi-Fi/MQTT
-// status, signal strength, free heap). Shorter than the factory-reset hold.
-constexpr unsigned long kDiagnosticsHoldMs = 1500;
-
-// Power management: dim after kDimTimeoutMs of no input, fully sleep the
-// panel after kSleepTimeoutMs. Any input restores full brightness/wakes it;
-// the very first input that wakes the panel from sleep is swallowed (not
-// forwarded to the active view), matching typical smart-home dial UX.
-constexpr unsigned long kDimTimeoutMs = 15000;
-constexpr unsigned long kSleepTimeoutMs = 60000;
-constexpr uint8_t kDimBrightness = 15;
-
-// Diagnostics screen: touching and holding the on-screen shutdown button for
-// this long fully powers off the device (M5Dial.Power.powerOff(), a hardware
-// power-down - restart by pressing the physical power button, same as
-// unplugging and replugging). Lifting the finger before the hold completes,
-// or dragging it off the button, cancels the shutdown.
-constexpr unsigned long kShutdownHoldMs = 2000;
-constexpr int kShutdownButtonRadius = 20;
-constexpr int kShutdownRingInnerRadius = 24;
-constexpr int kShutdownRingOuterRadius = 30;
-// Generous touch target for this small round button - the round panel makes
-// precise hit-circles harder to land than on a square screen (see the
-// three-band touch reasoning for the carousel in CLAUDE.md).
-constexpr int kShutdownHitRadius = kShutdownRingOuterRadius + 10;
-const uint16_t kShutdownAccentColor = ViewColors::toRGB565(ViewColors::Alert);
-const uint16_t kShutdownTrackColor = ViewColors::toRGB565(ViewColors::AlertSecondary);
-
-// Reserved MQTT command id (RIoT2.Ard.M5Dial.Node-specific extension, not
-// part of RIoT2.Core's Command contract) that triggers an OTA update instead
-// of being routed to a view: { "id": "system.ota", "value": "<firmware url>" }.
-const char* const kOtaCommandId = "system.ota";
-
-// M5Dial's Grove PORT.A / PORT.B pin table (GpioPeripheral itself is
-// board-agnostic - see riot2/GpioPeripheral.h).
-constexpr GpioPinMap kM5DialGroveMap{13, 15, 2, 1};
-
-enum class AppMode { Provisioning, Normal };
-
-AppMode mode = AppMode::Normal;
-NodeConfig config;
-WifiConnection wifi;
-MqttConnection mqtt;
-ProvisioningPortal provisioning;
-ConfigTemplateServer configTemplateServer;
-// enableCache=false: never persist/reuse a cached configuration - always
-// wait for a live fetch from the orchestrator (see OrchestratorClient.h).
-OrchestratorClient orchestratorClient{false};
+riot2::NodeRuntime runtime;
 ViewManager viewManager;
-// Grove-port peripherals (PORT.A / PORT.B) - configured the same way as
-// Views but never shown in the carousel, see PeripheralManager.h.
-PeripheralManager peripheralManager;
 M5Canvas canvas(&M5Dial.Display);
-
+DialInput input;
+DisplayPower displayPower;
+DiagnosticsScreen diagnostics;
+RfidReader rfid;
+bool showDiagnostics = false;
 WifiState lastWifiState = WifiState::Disconnected;
 MqttState lastMqttState = MqttState::Disconnected;
-bool factoryResetTriggered = false;
-bool diagnosticsHoldTriggered = false;
-unsigned long buttonPressStartMs = 0;
-bool showDiagnostics = false;
-long lastEncoderPosition = 0;
 
-// Tracks the on-screen shutdown button's hold-to-confirm gesture on the
-// diagnostics screen - see kShutdownHoldMs.
-bool shutdownHolding = false;
-unsigned long shutdownHoldStartMs = 0;
-
-// M5Dial's rotary encoder reports multiple raw quadrature counts per
-// physical click/detent (confirmed by observation: one click moved the
-// carousel highlight by 4 items before this was accounted for). Raw ticks
-// are accumulated in encoderRemainder and only converted into whole
-// "clicks" (what ViewManager/views actually expect as a +/-1 step) once a
-// full detent's worth has been seen.
-constexpr int kEncoderCountsPerClick = 4;
-int encoderRemainder = 0;
-
-// M5Dial.Encoder (bundled M5Dial lib) decodes quadrature in software via the
-// PJRC Encoder library's pin-change ISRs. On fast bezel spins the edge rate
-// can outrun how quickly those ISRs get serviced (WiFi/BT stack activity,
-// flash access, rendering, etc. all momentarily hold off interrupts on this
-// single-core-busy ESP32-S3), so a transition is occasionally missed
-// entirely and that detent's rotation is silently lost ("skips a beat" -
-// the menu doesn't move for that click). ESP32's PCNT peripheral counts
-// quadrature pulses in dedicated hardware with no CPU/ISR involvement per
-// edge, so it can't drop counts under interrupt latency the way the
-// software decoder can. `dialEncoder` replaces `M5Dial.Encoder` for actual
-// position reads; M5Dial.begin() is still told enableEncoder=false so the
-// bundled PJRC decoder never attaches its own interrupts on the same pins.
-ESP32Encoder dialEncoder;
-
-uint8_t fullBrightness = 128;
-bool dimmed = false;
-bool asleep = false;
-unsigned long lastActivityMs = 0;
-
-// Debounces the node's on-device RFID reader (M5Dial.Rfid, a built-in
-// MFRC522 - see M5Dial.begin()'s enableRFID flag): ignores repeat reads of
-// the same tag within this window so leaving a card resting on/near the
-// reader doesn't keep re-triggering RFIDView every loop().
-constexpr unsigned long kRfidRepeatSuppressMs = 3000;
-String lastRfidUid;
-unsigned long lastRfidReadMs = 0;
-
-// The on-device RFID reader is only powered up/polled once the active
-// configuration actually includes a view that consumes tag reads (e.g.
-// RFIDView) - see updateRfidActivation(). rfidInitialized guards against
-// calling M5Dial.Rfid.begin() more than once; rfidActive gates pollRfid().
-bool rfidInitialized = false;
-bool rfidActive = false;
-
-// The node's on-device BLE radio is likewise only powered on once the
-// active configuration actually includes a view that consumes BLE scan
-// events (e.g. BLEView) - see handleConfigurationUpdated(). Once started,
-// BleScanner scans continuously in the background (see BleScanner.h); there
-// is no corresponding "turn back off" path, mirroring the RFID reader.
-bool bleActive = false;
-
-// Set by handleConfigurationMessage() when riot2/node/{id}/configuration
-// arrives, and retried from the top-level loop() rather than being
-// acted on immediately inside the MQTT callback. requestConfiguration()
-// performs a blocking HTTP GET (up to several seconds) - running it
-// synchronously inside PubSubClient's own callback dispatch (mqtt.loop() ->
-// _client.loop() -> this callback) was observed to starve the client's
-// keepalive/socket processing for that whole duration, causing the MQTT
-// connection itself to drop (and even the HTTP GET's own socket to
-// read-time-out: "GET failed, status=-11") right as the fetch completed.
-// That, in turn, triggered reconnect -> republish online -> orchestrator
-// resends configuration -> blocking fetch -> disconnect again: a
-// self-sustaining loop every couple of minutes that reset the whole
-// UI/carousel and looked like the node was rebooting. Deferring the actual
-// fetch to loop() (outside of _client.loop()'s call stack) avoids
-// re-entering/blocking PubSubClient's own processing.
-ConfigurationRetry configurationRetry;
-
-// See BUG (fixed #3) in repo notes: on this PSRAM-less ESP32-S3 module, a
-// full-screen 16bpp (default) off-screen sprite combined with WiFi + the
-// BLE/Bluedroid controller both active can starve free heap enough that
-// M5GFX's PNG decoder silently fails to draw icons. Only drop to 8bpp
-// (RGB332, ~half the sprite size) once BLE is actually active; otherwise
-// keep the default color depth for full color fidelity. Safe to call more
-// than once - createSprite() reallocates the backing buffer each time.
+// On this PSRAM-less ESP32-S3 a full-screen 16bpp sprite plus Wi-Fi and the
+// BLE controller can starve the heap until M5GFX's PNG decoder silently fails
+// to draw icons (BUG fixed #3 in repo notes). So the canvas drops to 8bpp
+// (RGB332, ~58KB vs ~115KB) once BLE runs, and keeps full color otherwise.
+// createSprite() reallocates, so this can run again.
 void configureCanvasColorDepth() {
-    if (bleActive) {
+    if (runtime.bleActive()) {
         canvas.setColorDepth(8);
     }
     canvas.createSprite(M5Dial.Display.width(), M5Dial.Display.height());
 }
 
-void showStatus(const String& line1, const String& line2 = "") {
-    M5Dial.Display.fillScreen(BLACK);
-    M5Dial.Display.setTextColor(WHITE);
-    M5Dial.Display.setTextDatum(middle_center);
-
-    M5Dial.Display.setTextSize(2);
-    M5Dial.Display.drawString(line1, M5Dial.Display.width() / 2, M5Dial.Display.height() / 2 - 10);
-
-    if (line2.length()) {
-        M5Dial.Display.setTextSize(1);
-        M5Dial.Display.drawString(line2, M5Dial.Display.width() / 2, M5Dial.Display.height() / 2 + 15);
-    }
-}
-
-// Restores full brightness / wakes the panel from sleep. Returns true if the
-// panel had to be woken from a full sleep (caller should swallow the input
-// that triggered this rather than acting on it).
-bool wakeDisplay() {
-    bool wasAsleep = asleep;
-    if (asleep) {
-        M5Dial.Display.wakeup();
-        asleep = false;
-    }
-    if (dimmed) {
-        M5Dial.Display.setBrightness(fullBrightness);
-        dimmed = false;
-    }
-    lastActivityMs = millis();
-    return wasAsleep;
-}
-
-void updatePowerManagement() {
-    unsigned long idleMs = millis() - lastActivityMs;
-    if (!asleep && idleMs >= kSleepTimeoutMs) {
-        M5Dial.Display.sleep();
-        asleep = true;
-    } else if (!asleep && !dimmed && idleMs >= kDimTimeoutMs) {
-        M5Dial.Display.setBrightness(kDimBrightness);
-        dimmed = true;
-    }
-}
-
-// Center of the on-screen shutdown button on the diagnostics screen, in
-// display coordinates (shared by rendering and touch hit-testing). Kept
-// close enough to the display center that its hit-circle (kShutdownHitRadius)
-// stays fully inside the M5Dial's round visible area even offset to the
-// right side.
-int shutdownButtonCx() {
-    return M5Dial.Display.width() - 55;
-}
-int shutdownButtonCy() {
-    return M5Dial.Display.height() / 2 + 10;
-}
-
-bool isNearShutdownButton(int x, int y) {
-    int dx = x - shutdownButtonCx();
-    int dy = y - shutdownButtonCy();
-    return (dx * dx + dy * dy) <= (kShutdownHitRadius * kShutdownHitRadius);
-}
-
-// Publishes the graceful-shutdown offline message (per CLAUDE.md's
-// "Graceful shutdown" lifecycle step) and fully powers off the device.
-// M5Dial.Power.powerOff() is a hardware power-down - the device is restarted
-// only by pressing the physical power button, not by any input this app
-// handles.
-void shutdownDevice() {
-    Serial.println("[Power] Shutdown confirmed from diagnostics screen");
-    Buzzer::error();
-    showStatus("Shutting down...", "Press power button to restart");
-    mqtt.publishOfflineAndDisconnect();
-    delay(300);
-    M5Dial.Power.powerOff();
-}
-
-void renderDiagnostics(M5Canvas& target) {
-    target.fillScreen(BLACK);
-    target.setTextColor(WHITE);
-    target.setTextDatum(middle_center);
-    target.setTextSize(2);
-    target.drawString("Diagnostics", target.width() / 2, 20);
-    target.setTextSize(1);
-    target.drawString("hold button to close", target.width() / 2, 38);
-
-    target.setTextDatum(middle_left);
-    int x = 20;
-    int y = 56;
-    const int lineHeight = 16;
-
-    target.drawString("Node: " + config.name, x, y);
-    y += lineHeight;
-    target.drawString("ID: " + config.id, x, y);
-    y += lineHeight;
-    target.drawString(String("WiFi: ") + (wifi.isConnected() ? "connected" : "connecting..."), x, y);
-    y += lineHeight;
-    if (wifi.isConnected()) {
-        target.drawString("SSID: " + WiFi.SSID(), x, y);
-        y += lineHeight;
-        target.drawString("RSSI: " + String(WiFi.RSSI()) + " dBm", x, y);
-        y += lineHeight;
-    }
-    target.drawString(String("MQTT: ") + (mqtt.isConnected() ? "connected" : "connecting..."), x, y);
-    y += lineHeight;
-    target.drawString("Free heap: " + String(ESP.getFreeHeap() / 1024) + " KB", x, y);
-    y += lineHeight;
-    target.drawString("Uptime: " + String(millis() / 1000) + " s", x, y);
-
-    int cx = shutdownButtonCx();
-    int cy = shutdownButtonCy();
-    float holdFraction = 0.f;
-    if (shutdownHolding) {
-        holdFraction = static_cast<float>(millis() - shutdownHoldStartMs) / static_cast<float>(kShutdownHoldMs);
-        if (holdFraction > 1.f) {
-            holdFraction = 1.f;
+riot2::NodeRuntimeHooks runtimeHooks() {
+    riot2::NodeRuntimeHooks hooks;
+    hooks.viewTemplates = [] { return ViewFactory::instance().configurationTemplates(); };
+    hooks.isView = [](const String& classFullName) { return ViewFactory::instance().isRegistered(classFullName); };
+    hooks.onConfiguration = [](const NodeConfiguration& configuration) {
+        viewManager.rebuild(configuration);
+        rfid.setActive(viewManager.hasRfidConsumer());
+        return viewManager.hasBleConsumer();
+    };
+    hooks.onCommand = [](const Command& command) {
+        // An alert view (AlertView/NotificationView) took over the display: make
+        // sure it is seen, not left on a dimmed or sleeping screen.
+        if (viewManager.onCommand(command.id, command)) {
+            displayPower.wake();
         }
-    }
-
-    target.fillArc(cx, cy, kShutdownRingOuterRadius, kShutdownRingInnerRadius, 0, 360, kShutdownTrackColor);
-    if (holdFraction > 0.f) {
-        target.fillArc(cx, cy, kShutdownRingOuterRadius, kShutdownRingInnerRadius, 0, 360.0f * holdFraction,
-                       kShutdownAccentColor);
-    }
-    target.fillCircle(cx, cy, kShutdownButtonRadius, kShutdownAccentColor);
-
-    target.setTextDatum(middle_center);
-    target.setTextColor(WHITE);
-    target.setTextSize(1);
-    target.drawString("hold 2s", cx, cy + kShutdownRingOuterRadius + 12);
-    target.drawString("to power off", cx, cy + kShutdownRingOuterRadius + 24);
-}
-
-void handleCommand(const String& topic, const String& payload) {
-    JsonDocument doc;
-    DeserializationError error = deserializeJson(doc, payload);
-    if (error) {
-        Serial.printf("[Command] Failed to parse %s: %s\n", topic.c_str(), error.c_str());
-        return;
-    }
-
-    String id = doc["id"] | "";
-    if (id.length() == 0) {
-        Serial.printf("[Command] %s missing id, ignoring\n", topic.c_str());
-        return;
-    }
-
-    if (id == kOtaCommandId) {
-        String url = doc["value"] | "";
-        Serial.printf("[OTA] Update requested: %s\n", url.c_str());
+    };
+    hooks.onOtaStarted = [](const String&) {
         Buzzer::confirm();
         showStatus("Updating...", "Do not power off");
-        if (!OtaUpdater::performUpdate(url)) {
-            Buzzer::error();
-            showStatus("Update failed", "See serial log");
-        }
-        return;
-    }
-
-    Command command{id, doc["value"]};
-    if (viewManager.onCommand(command.id, command)) {
-        // An isAlert() view (AlertView/NotificationView) just took over the
-        // display - always make sure it's actually visible rather than
-        // left on a dimmed/sleeping screen.
-        wakeDisplay();
-    }
-    // commandTemplate ids are unique per configuration entry, so trying
-    // both routers is safe - exactly one of them will ever actually own a
-    // given commandId. Peripherals have no display/UI to wake.
-    peripheralManager.onCommand(command.id, command);
-}
-
-void handleReport(const Report& report) {
-    Serial.printf("[Report] id=%s value=%s\n", report.id.c_str(), report.value.c_str());
-    mqtt.publishReport(report);
-}
-
-void handleOrchestratorOnline(const String& topic, const String& payload) {
-    // Corrected handshake: riot2/orchestrator/online carries no payload (or
-    // an ignorable one). The node simply re-announces itself; the
-    // orchestrator replies with the apiBaseUrl on
-    // riot2/node/{id}/configuration (see handleConfigurationMessage).
-    Serial.println("[Orchestrator] Orchestrator online, re-announcing node");
-    mqtt.publishOnline();
-}
-
-void handleConfigurationMessage(const String& topic, const String& payload) {
-    JsonDocument doc;
-    DeserializationError error = deserializeJson(doc, payload);
-    if (error) {
-        Serial.printf("[Orchestrator] Failed to parse configuration message: %s\n", error.c_str());
-        return;
-    }
-
-    String apiBaseUrl = doc["apiBaseUrl"] | "";
-    if (apiBaseUrl.length() == 0) {
-        Serial.println("[Orchestrator] configuration message missing apiBaseUrl");
-        return;
-    }
-
-    // See the configurationRetry comment above: don't call
-    // orchestratorClient.requestConfiguration() (blocking HTTP GET) from
-    // here directly - just record the request and let loop() perform it
-    // outside of PubSubClient's own callback dispatch.
-    configurationRetry.request(apiBaseUrl);
-}
-
-void handleConfigurationUpdated(const NodeConfiguration& nodeConfiguration) {
-    for (const auto& device : nodeConfiguration.deviceConfigurations) {
-        Serial.printf("[Orchestrator]   view id=%s name=%s classFullName=%s (%u commands, %u reports)\n",
-                      device.id.c_str(), device.name.c_str(), device.classFullName.c_str(),
-                      static_cast<unsigned>(device.commandTemplates.size()),
-                      static_cast<unsigned>(device.reportTemplates.size()));
-    }
-    viewManager.rebuild(nodeConfiguration);
-    peripheralManager.rebuild(nodeConfiguration,
-                              [](const String& classFullName) { return ViewFactory::instance().isRegistered(classFullName); });
-
-    // Only power up the on-device RFID reader if this configuration actually
-    // has a view that wants tag reads (e.g. RFIDView) - it stays off
-    // otherwise, rather than being enabled unconditionally at boot.
-    rfidActive = viewManager.hasRfidConsumer();
-    if (rfidActive && !rfidInitialized) {
-        Serial.println("[RFID] Configuration includes an RFID-consuming view, enabling on-device reader");
-        M5Dial.Rfid.begin();
-        rfidInitialized = true;
-    }
-
-    // Same gating for the on-device BLE radio: only enable it if this
-    // configuration actually has a view that wants BLE scan events (e.g.
-    // BLEView, see BleScanner.h).
-    if (viewManager.hasBleConsumer() && !bleActive) {
-        Serial.println("[BLE] Configuration includes a BLE-consuming view, enabling on-device BLE scanner");
-        // Keep modem sleep enabled on later Wi-Fi retries as well as the initial BLE startup.
-        wifi.setModemSleepEnabled(true);
-        BleScanner::instance().begin();
-        bleActive = true;
-        // Shrink the off-screen canvas to 8bpp now that BLE is active - see
-        // configureCanvasColorDepth().
-        configureCanvasColorDepth();
-    }
+    };
+    hooks.onOtaFailed = [] {
+        Buzzer::error();
+        showStatus("Update failed", "See serial log");
+    };
+    hooks.onBleStarted = configureCanvasColorDepth;
+    hooks.onBleDeviceDiscovered = [](const BleDeviceInfo& device) { viewManager.notifyBleDeviceDiscovered(device); };
+    hooks.onBleDeviceLost = [](const String& address) { viewManager.notifyBleDeviceLost(address); };
+    hooks.onBleAdvertisement = [](const BleAdvertisement& advertisement) { viewManager.notifyBleAdvertisement(advertisement); };
+    return hooks;
 }
 
 void factoryReset() {
-    Serial.println("[Config] Factory reset requested, clearing NodeConfig");
     Buzzer::error();
     showStatus("Resetting...", "Clearing config");
-    mqtt.publishOfflineAndDisconnect();
-    NodeConfigStore::clear();
-    delay(500);
-    ESP.restart();
-}
-
-// Polls the node's on-device RFID reader; when a new tag is read (and it
-// isn't a debounced repeat of the same tag - see kRfidRepeatSuppressMs),
-// forwards its UID to ViewManager::notifyRfidTagRead(), which routes it to
-// RFIDView (IView::consumesRfidEvents()) regardless of what's currently
-// focused/shown, exactly like an inbound command does for AlertView /
-// NotificationView.
-void pollRfid() {
-    if (!M5Dial.Rfid.PICC_IsNewCardPresent() || !M5Dial.Rfid.PICC_ReadCardSerial()) {
-        return;
-    }
-
-    String uid;
-    for (byte i = 0; i < M5Dial.Rfid.uid.size; i++) {
-        if (M5Dial.Rfid.uid.uidByte[i] < 0x10) {
-            uid += "0";
-        }
-        uid += String(M5Dial.Rfid.uid.uidByte[i], HEX);
-    }
-    uid.toUpperCase();
-    M5Dial.Rfid.PICC_HaltA();
-
-    unsigned long now = millis();
-    if (uid == lastRfidUid && (now - lastRfidReadMs) < kRfidRepeatSuppressMs) {
-        return;
-    }
-    lastRfidUid = uid;
-    lastRfidReadMs = now;
-
-    Serial.printf("[RFID] Tag read: %s\n", uid.c_str());
-    if (viewManager.notifyRfidTagRead(uid)) {
-        // RFIDView just took over the display - make sure it's actually
-        // visible rather than left on a dimmed/sleeping screen.
-        wakeDisplay();
-    }
+    runtime.factoryReset();
 }
 
 }  // namespace
@@ -475,261 +83,92 @@ void pollRfid() {
 void setup() {
     Serial.begin(115200);
     // First, so a new OTA image's trial time starts at boot (see riot2/OtaRollback.h).
-    OtaRollback::begin();
-
-    PeripheralFactory::instance().registerCreator(
-        "RIoT2.Ard.M5Dial.Node.GpioPeripheral", [] { return std::make_unique<GpioPeripheral>(kM5DialGroveMap); },
-        [] {
-            DeviceConfiguration config;
-            config.id = riot2::newId();
-            config.name = "GPIO Peripheral";
-            config.classFullName = "RIoT2.Ard.M5Dial.Node.GpioPeripheral";
-            config.deviceParameters = {{"pullup", "true"}, {"invert", "false"}};
-
-            ReportTemplate report;
-            report.id = riot2::newId();
-            report.type = riot2::ValueType::Boolean;
-            report.name = "Doorbell Button";
-            report.address = "A1";
-            config.reportTemplates.push_back(report);
-
-            CommandTemplate cmd;
-            cmd.id = riot2::newId();
-            cmd.type = riot2::ValueType::Boolean;
-            cmd.name = "Porch Relay";
-            cmd.address = "A2";
-            config.commandTemplates.push_back(cmd);
-            return config;
-        });
+    riot2::NodeRuntime::startOtaTrial();
+    registerPeripherals();
 
     auto cfg = M5.config();
-    // enableEncoder=false: skip M5Dial's bundled software (PJRC) quadrature
-    // decoder entirely - dialEncoder (hardware PCNT, set up below) reads the
-    // same DIAL_ENCODER_PIN_A/B pins without its missed-edge-under-load risk.
+    // enableEncoder=false: DialInput reads the encoder pins with the hardware
+    // PCNT decoder instead of M5Dial's software one.
     M5Dial.begin(cfg, false, false);
     Buzzer::begin();
+    input.begin();
 
-    ESP32Encoder::useInternalWeakPullResistors = puType::up;
-    dialEncoder.attachFullQuad(DIAL_ENCODER_PIN_A, DIAL_ENCODER_PIN_B);
-    dialEncoder.setCount(0);
-
-    config = NodeConfigStore::load();
-
-    if (!config.isValid()) {
-        Serial.println("[Config] No valid NodeConfig in NVS. Starting provisioning portal.");
-        mode = AppMode::Provisioning;
-        provisioning.begin();
-        showStatus("Setup needed", "WiFi: " + provisioning.apSsid());
+    runtime.begin(Manifest::json, runtimeHooks());
+    if (runtime.isProvisioning()) {
+        showStatus("Setup needed", "WiFi: " + runtime.provisioning().apSsid());
         return;
     }
 
-    Serial.printf("[Config] Loaded node id=%s name=%s\n", config.id.c_str(), config.name.c_str());
-    showStatus("Starting...", config.name);
-
-    fullBrightness = M5Dial.Display.getBrightness();
-    lastActivityMs = millis();
-
-    // bleActive is always false this early (BLE only turns on once a
-    // config fetch reveals a BLE-consuming view - see
-    // handleConfigurationUpdated()), so this initially creates the sprite
-    // at the default color depth. If/when BLE activates,
-    // configureCanvasColorDepth() is called again to shrink to 8bpp
-    // (RGB332, ~58KB vs ~115KB at 16bpp) - see that function's comment for
-    // why (BUG fixed #3 in repo notes: low free heap makes M5GFX's PNG
-    // decoder silently fail to draw icons once BLE is active).
+    showStatus("Starting...", runtime.config().name);
+    displayPower.begin();
+    // BLE is never active this early, so the sprite starts at full color depth.
     configureCanvasColorDepth();
-
-    viewManager.onReport(handleReport);
-    peripheralManager.onReport(handleReport);
-    orchestratorClient.onConfigurationUpdated(handleConfigurationUpdated);
-
-    // No loadCached() call - persistent configuration caching is disabled
-    // (see orchestratorClient's construction above), so the carousel stays
-    // empty until the orchestrator handshake delivers a live configuration.
-
-    wifi.begin(config.wifiSsid, config.wifiPassword);
-
-    // Available as soon as Wi-Fi comes up (served unconditionally, unlike
-    // MQTT/orchestrator handshake state) so the orchestrator can fetch this
-    // node's device configuration templates via the nodeBaseUrl advertised
-    // in NodeOnlineMessage as soon as it sees this node online.
-    configTemplateServer.begin([]() {
-        std::vector<DeviceConfiguration> templates = ViewFactory::instance().configurationTemplates();
-        std::vector<DeviceConfiguration> peripheralTemplates = PeripheralFactory::instance().configurationTemplates();
-        templates.insert(templates.end(), peripheralTemplates.begin(), peripheralTemplates.end());
-        return templates;
-    });
-
-    // SNTP sync so Report.timeStamp is a real Unix epoch; opportunistic, runs
-    // once Wi-Fi comes up. Reports published before the first sync completes
-    // will carry a small/incorrect timestamp - acceptable for now.
-    configTime(0, 0, "pool.ntp.org", "time.nist.gov");
-
-    BleScanner::instance().onDeviceDiscovered(
-        [](const BleDeviceInfo& device) { viewManager.notifyBleDeviceDiscovered(device); });
-    BleScanner::instance().onDeviceLost([](const String& address) { viewManager.notifyBleDeviceLost(address); });
-    BleScanner::instance().onAdvertisement(
-        [](const BleAdvertisement& advertisement) { viewManager.notifyBleAdvertisement(advertisement); });
-
-    mqtt.onCommand(handleCommand);
-    mqtt.onOrchestratorOnline(handleOrchestratorOnline);
-    mqtt.onConfigurationMessage(handleConfigurationMessage);
-    mqtt.setManifestJson(Manifest::json);
-    mqtt.begin(config);
+    viewManager.onReport([](const Report& report) { runtime.publishReport(report); });
 }
 
 void loop() {
     M5Dial.update();
 
-    if (mode == AppMode::Provisioning) {
-        provisioning.loop();
+    runtime.loop();
+    if (runtime.isProvisioning()) {
         return;
     }
-
-    wifi.loop();
-    mqtt.loop();
-    configTemplateServer.loop();
-
-    // Runs the (blocking) configuration fetch requested by
-    // handleConfigurationMessage(), outside of mqtt.loop()'s own callback
-    // dispatch. Failed attempts retry with bounded backoff while Wi-Fi is up.
-    // A successful fetch (Wi-Fi, MQTT and the orchestrator all work, and the
-    // carousel was rebuilt) is what keeps a new OTA image.
-    configurationRetry.loop(wifi.isConnected(), [](const String& url) {
-        bool fetched = orchestratorClient.requestConfiguration(url, config.id);
-        if (fetched) {
-            OtaRollback::markHealthy();
-        }
-        return fetched;
-    });
 
     viewManager.loop();
 
-    if (rfidActive) {
-        pollRfid();
+    String uid = rfid.poll();
+    // RFIDView takes over the display, as an alert does: make sure it is seen.
+    if (uid.length() > 0 && viewManager.notifyRfidTagRead(uid)) {
+        displayPower.wake();
     }
 
-    if (bleActive) {
-        BleScanner::instance().loop();
-    }
-
-    peripheralManager.loop();
-
+    WifiConnection& wifi = runtime.wifi();
+    MqttConnection& mqtt = runtime.mqtt();
     bool statusChanged = wifi.state() != lastWifiState || mqtt.state() != lastMqttState;
-    if (statusChanged) {
-        lastWifiState = wifi.state();
-        lastMqttState = mqtt.state();
-    }
+    lastWifiState = wifi.state();
+    lastMqttState = mqtt.state();
 
-    if (!factoryResetTriggered && M5Dial.BtnA.pressedFor(kFactoryResetHoldMs)) {
-        factoryResetTriggered = true;
+    DialInput::Frame frame = input.read();
+    if (frame.factoryReset) {
         factoryReset();
         return;
     }
-
-    if (!diagnosticsHoldTriggered && M5Dial.BtnA.pressedFor(kDiagnosticsHoldMs)) {
-        diagnosticsHoldTriggered = true;
+    if (frame.toggleDiagnostics) {
         showDiagnostics = !showDiagnostics;
         Buzzer::confirm();
     }
 
-    if (M5Dial.BtnA.wasPressed()) {
-        buttonPressStartMs = millis();
+    bool hadInput = frame.hasInput();
+    if (hadInput && displayPower.wake()) {
+        hadInput = false;  // the first input after sleep only wakes the screen
     }
-
-    // A plain tap (button released before the diagnostics-hold threshold,
-    // and not already consumed by that hold gesture) is forwarded to
-    // ViewManager, whose onButtonPress() always returns to the home
-    // carousel when a view is focused (a no-op otherwise) - the physical
-    // button is reserved exclusively for that gesture; views themselves are
-    // driven entirely by touch and the bezel (encoder).
-    bool buttonPressed = false;
-    if (M5Dial.BtnA.wasReleased()) {
-        if (!diagnosticsHoldTriggered && (millis() - buttonPressStartMs) < kDiagnosticsHoldMs) {
-            buttonPressed = true;
-        }
-        diagnosticsHoldTriggered = false;
-    }
-
-    long encoderPosition = dialEncoder.getCount();
-    int rawEncoderDelta = static_cast<int>(encoderPosition - lastEncoderPosition);
-    lastEncoderPosition = encoderPosition;
-
-    int encoderClicks = 0;
-    if (rawEncoderDelta != 0) {
-        // Discard any leftover partial-click "remainder" from the previous
-        // direction as soon as the wheel reverses. Without this, a reversal
-        // has to first pay down the old direction's leftover ticks before a
-        // full click accumulates in the new direction, which feels like it
-        // takes two clicks to register a direction change.
-        if ((rawEncoderDelta > 0 && encoderRemainder < 0) || (rawEncoderDelta < 0 && encoderRemainder > 0)) {
-            encoderRemainder = 0;
-        }
-
-        encoderRemainder += rawEncoderDelta;
-        encoderClicks = encoderRemainder / kEncoderCountsPerClick;
-        encoderRemainder -= encoderClicks * kEncoderCountsPerClick;
-    }
-
-    bool touched = false;
-    bool touchDown = false;
-    int touchX = 0;
-    int touchY = 0;
-    if (M5Dial.Touch.getCount()) {
-        auto detail = M5Dial.Touch.getDetail(0);
-        touchX = detail.x;
-        touchY = detail.y;
-        touchDown = detail.isPressed();
-        touched = detail.wasPressed();
-    }
-
-    bool hadInput = encoderClicks != 0 || buttonPressed || touched;
-    if (hadInput && wakeDisplay()) {
-        hadInput = false;  // first tap after sleep just wakes the screen
-    }
-
-    updatePowerManagement();
+    displayPower.loop();
 
     if (showDiagnostics) {
-        if (touchDown && isNearShutdownButton(touchX, touchY)) {
-            if (!shutdownHolding) {
-                shutdownHolding = true;
-                shutdownHoldStartMs = millis();
-            } else if (millis() - shutdownHoldStartMs >= kShutdownHoldMs) {
-                shutdownDevice();  // M5Dial.Power.powerOff() - never returns
-            }
-        } else {
-            shutdownHolding = false;
-        }
-
-        renderDiagnostics(canvas);
+        diagnostics.loop(canvas, runtime, frame.touchDown, frame.touchX, frame.touchY);
         canvas.pushSprite(0, 0);
         return;
     }
-    shutdownHolding = false;
+    diagnostics.hide();
 
     if (viewManager.hasViews()) {
         if (hadInput) {
-            // Forward one onEncoderChange() call per physical click, so a
-            // fast spin that accumulates several clicks between loop()
-            // iterations still moves the highlight/value that many steps
-            // (callers only look at the sign of delta, not its magnitude).
-            for (int i = 0; i < abs(encoderClicks); ++i) {
-                viewManager.onEncoderChange(encoderClicks > 0 ? 1 : -1);
+            // One onEncoderChange() per physical click, so a fast spin moves as
+            // many steps as it clicked (views only look at the sign).
+            for (int i = 0; i < abs(frame.encoderClicks); ++i) {
+                viewManager.onEncoderChange(frame.encoderClicks > 0 ? 1 : -1);
             }
-            if (buttonPressed) {
+            if (frame.buttonTapped) {
                 viewManager.onButtonPress();
             }
-            if (touched) {
-                viewManager.onTouch(touchX, touchY);
+            if (frame.touched) {
+                viewManager.onTouch(frame.touchX, frame.touchY);
             }
         }
-
         viewManager.render(canvas);
         canvas.pushSprite(0, 0);
     } else if (statusChanged) {
-        String wifiLine = wifi.isConnected() ? "WiFi: connected" : "WiFi: connecting...";
-        String mqttLine = mqtt.isConnected() ? "MQTT: connected" : "MQTT: connecting...";
-        showStatus(wifiLine, mqttLine);
+        showStatus(wifi.isConnected() ? "WiFi: connected" : "WiFi: connecting...",
+                   mqtt.isConnected() ? "MQTT: connected" : "MQTT: connecting...");
     }
 }

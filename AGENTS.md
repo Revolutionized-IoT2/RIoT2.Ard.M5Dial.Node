@@ -55,7 +55,11 @@ Device commands, only when an M5Dial is connected and flashing/monitoring was re
 | `MANIFEST_NAME`, `VERSION` | Inputs to the shared manifest generation script |
 | `include/*View.h`, `src/*View.cpp` | M5Dial canvas views and templates; the shared view types render a `riot2::views` model (RIoT2.Ard.Shared), which also builds their template |
 | `include/ViewManager.h`, `src/ViewManager.cpp` | Carousel, focus, popups, hidden timers, RFID/BLE event routing |
-| `include/Buzzer.h`, `src/main.cpp` | Buzzer feedback and board lifecycle wiring |
+| `include/Buzzer.h` | Buzzer feedback |
+| `src/main.cpp` | Board setup, `NodeRuntimeHooks` and the main loop (carousel, diagnostics, status screen) |
+| `include/DialInput.h`, `src/DialInput.cpp` | Hardware encoder detents, button tap/hold gestures (diagnostics, factory reset), touch |
+| `include/DisplayPower.h`, `include/DiagnosticsScreen.h`, `include/RfidReader.h`, `include/StatusScreen.h` (and `src/`) | Dim/sleep, the diagnostics screen with hold-to-power-off, the built-in RFID reader, status text |
+| `include/BoardPeripherals.h`, `src/BoardPeripherals.cpp` | Grove pin map and GPIO peripheral registration |
 | `include/RFIDView.h`, `src/RFIDView.cpp` | Built-in RFID view |
 | `src/Icons.cpp`, `include/Icons.h` | Embedded icon assets |
 | `.github/copilot-instructions.md` | Pointer to this file only |
@@ -77,8 +81,11 @@ Device commands, only when an M5Dial is connected and flashing/monitoring was re
   build both M5Dial and M5Core2.
 - Keep encoder input on `ESP32Encoder`/PCNT, not a software decoder.
 - Do not assign `system.ota` to a view command template.
-- Keep `OtaRollback::begin()` first in `setup()`, and `OtaRollback::markHealthy()` right after a
-  successful `requestConfiguration()` in `loop()` (see RIoT2.Ard.Shared). Don't change the pinned
+- The node lifecycle (NVS settings, provisioning, Wi-Fi, MQTT, configuration, OTA, peripherals,
+  BLE start) is `riot2::NodeRuntime` in RIoT2.Ard.Shared. `main.cpp` sets up the board, builds the
+  UI and passes `NodeRuntimeHooks`; don't add lifecycle code here, extend the runtime instead.
+- Keep `riot2::NodeRuntime::startOtaTrial()` first in `setup()`; `NodeRuntime` marks the image
+  healthy after the first successful configuration fetch (see RIoT2.Ard.Shared). Don't change the pinned
   `espressif32` platform without checking that its bootloader still has app rollback enabled.
 - Do not turn RFID or BLE into unconditional hardware work; RFID is activated only by RFID views,
   and BLE starts only after a BLE-consuming view exists.
