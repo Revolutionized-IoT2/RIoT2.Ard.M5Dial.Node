@@ -46,6 +46,8 @@ Set-Location C:\Src\RIoT2\RIoT2.Ard.Shared
 python .\tests\test_firmware_p1.py
 python .\tests\test_firmware_p2.py
 python .\tests\test_firmware_architecture.py
+python .\tests\test_golden_messages.py
+python .\tests\test_desired_state.py
 ```
 
 ## First boot provisioning
@@ -92,7 +94,25 @@ Firmware OTA is triggered by an MQTT command to `riot2/node/{id}/command`:
 
 `system.ota` is reserved for firmware and is handled before view/peripheral dispatch. HTTPS
 downloads use the compiled `RIOT2_ROOT_CA_PEM` when present; otherwise the firmware logs a warning
-and uses insecure TLS.
+and uses insecure TLS. Since 0.5.0 an update sent with a `correlationId` (as the orchestrator does)
+is answered `executed` once the image is installed, just before the restart, or `failed`.
+
+## Command results and configuration status
+
+Since 0.5.0 the node advertises `command-result/1` and `desired-state/1`, so the orchestrator
+tracks its commands and shows its sync state (it no longer shows as `legacy`):
+
+- Every command with a `correlationId` is answered on `riot2/node/{id}/command/result`:
+  `executed` when a view or peripheral has the command, `unknownCommand` when none has, `rejected`
+  while the configuration is still being fetched. A repeated delivery is answered without running
+  again.
+- The retained `riot2/node/{id}/status` says which configuration revision is applied, and lists
+  configured devices this firmware has no view or peripheral for (`Unknown class`).
+- A reconnect or orchestrator restart doesn't fetch the configuration again when the node already
+  runs it. Commands arrive at QoS 1.
+
+The rules are in RIoT2.Ard.Shared's README and the hub
+[MQTT contract](https://github.com/Revolutionized-IoT2/.github/blob/main/docs/contracts/mqtt-topics.md#commandresult-riot2coremodelscommandresultcs).
 
 ### Automatic rollback
 

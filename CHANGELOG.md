@@ -4,6 +4,21 @@ All notable documentation changes to `RIoT2.Ard.M5Dial.Node`.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-01
+
+Command results and desired state ([I19](https://github.com/Revolutionized-IoT2/.github/blob/main/docs/increments/phase-2.md#i19-firmware-results-and-desired-state-m)), from RIoT2.Ard.Shared's `NodeRuntime`.
+
+- Added: the node advertises `command-result/1` and `desired-state/1`, answers commands that carry
+  a `correlationId` on `riot2/node/{id}/command/result`, and publishes its configuration status,
+  retained, on `riot2/node/{id}/status`. The orchestrator now tracks its commands and sync state.
+- Changed: a configuration command for the configuration the node already runs no longer fetches
+  it; commands and configuration messages arrive at QoS 1; the configuration is fetched from
+  `api/nodes/…` (divergence D5).
+- Changed: a correlated `system.ota` is answered `executed` before the restart, and a redelivery
+  after the restart is not installed again.
+- Changed: `ViewManager::onCommand` returns whether a view has the command id, and reports an
+  alert taking over the display separately (`tookOverDisplay`), which still wakes the screen.
+
 ## [0.4.0] - 2026-10-14
 
 Shared node runtime ([I18](https://github.com/Revolutionized-IoT2/.github/blob/main/docs/increments/phase-2.md#i18-firmware-noderuntime-m)). No behaviour change intended: the node lifecycle (settings,

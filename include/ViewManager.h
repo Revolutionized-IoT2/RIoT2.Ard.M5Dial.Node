@@ -80,11 +80,13 @@ public:
 
     // Routes an inbound command to whichever view owns a commandTemplate
     // matching commandId (regardless of which view is currently focused).
-    // Returns true if this caused an isAlert() view to take over the
-    // display (e.g. AlertView/NotificationView) - callers use this to know
-    // whether to wake the display from sleep/dim, since such a takeover
-    // should always be visible rather than left on a blank/sleeping screen.
-    bool onCommand(const String& commandId, const Command& command);
+    // Returns true when a view owns the command id (the node answers
+    // `executed`; false makes it `unknownCommand`). *tookOverDisplay is set
+    // when the command made an isAlert() view take over the display (e.g.
+    // AlertView/NotificationView) - callers use this to wake the display from
+    // sleep/dim, since such a takeover should always be visible rather than
+    // left on a blank/sleeping screen.
+    bool onCommand(const String& commandId, const Command& command, bool* tookOverDisplay = nullptr);
 
     // Routes a tag read from the node's on-device RFID reader to every
     // entry with IView::consumesRfidEvents() (regardless of which view is

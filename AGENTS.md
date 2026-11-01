@@ -84,6 +84,9 @@ Device commands, only when an M5Dial is connected and flashing/monitoring was re
 - The node lifecycle (NVS settings, provisioning, Wi-Fi, MQTT, configuration, OTA, peripherals,
   BLE start) is `riot2::NodeRuntime` in RIoT2.Ard.Shared. `main.cpp` sets up the board, builds the
   UI and passes `NodeRuntimeHooks`; don't add lifecycle code here, extend the runtime instead.
+- The `onCommand` hook returns whether a view has the command id (`ViewManager::onCommand`), which
+  decides between `executed` and `unknownCommand`; an alert taking over the display is the separate
+  `tookOverDisplay` output and only wakes the screen.
 - Keep `riot2::NodeRuntime::startOtaTrial()` first in `setup()`; `NodeRuntime` marks the image
   healthy after the first successful configuration fetch (see RIoT2.Ard.Shared). Don't change the pinned
   `espressif32` platform without checking that its bootloader still has app rollback enabled.

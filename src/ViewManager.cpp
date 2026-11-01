@@ -411,7 +411,8 @@ void ViewManager::onTouch(int x, int y) {
 }
 
 
-bool ViewManager::onCommand(const String& commandId, const Command& command) {
+bool ViewManager::onCommand(const String& commandId, const Command& command, bool* tookOverDisplay) {
+    if (tookOverDisplay) *tookOverDisplay = false;
     for (size_t i = 0; i < _entries.size(); ++i) {
         Entry& entry = _entries[i];
         for (const auto& cmdTemplate : entry.config.commandTemplates) {
@@ -426,9 +427,9 @@ bool ViewManager::onCommand(const String& commandId, const Command& command) {
                     enterFocused(i);
                     _idle = false;
                     _lastInputMs = millis();
-                    return true;
+                    if (tookOverDisplay) *tookOverDisplay = true;
                 }
-                return false;
+                return true;
             }
         }
     }

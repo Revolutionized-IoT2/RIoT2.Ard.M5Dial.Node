@@ -51,11 +51,14 @@ riot2::NodeRuntimeHooks runtimeHooks() {
         return viewManager.hasBleConsumer();
     };
     hooks.onCommand = [](const Command& command) {
+        bool tookOverDisplay = false;
+        bool handled = viewManager.onCommand(command.id, command, &tookOverDisplay);
         // An alert view (AlertView/NotificationView) took over the display: make
         // sure it is seen, not left on a dimmed or sleeping screen.
-        if (viewManager.onCommand(command.id, command)) {
+        if (tookOverDisplay) {
             displayPower.wake();
         }
+        return handled;
     };
     hooks.onOtaStarted = [](const String&) {
         Buzzer::confirm();
