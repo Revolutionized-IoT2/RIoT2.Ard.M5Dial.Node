@@ -112,7 +112,7 @@ tracks its commands and shows its sync state (it no longer shows as `legacy`):
   runs it. Commands arrive at QoS 1.
 
 The rules are in RIoT2.Ard.Shared's README and the hub
-[MQTT contract](https://github.com/Revolutionized-IoT2/.github/blob/main/docs/contracts/mqtt-topics.md#commandresult-riot2coremodelscommandresultcs).
+[MQTT contract](https://github.com/Revolutionized-IoT2/.github/blob/main/docs/contracts/mqtt-topics.md#commandresult-riot2coresrccontractsmodelscommandresultcs).
 
 ### Automatic rollback
 
