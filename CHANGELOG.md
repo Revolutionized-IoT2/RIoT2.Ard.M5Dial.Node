@@ -4,6 +4,11 @@ All notable documentation changes to `RIoT2.Ard.M5Dial.Node`.
 
 ## [Unreleased]
 
+- Build: `renovate.json` extends the shared Renovate preset ([I33](https://github.com/Revolutionized-IoT2/.github/blob/main/docs/increments/phase-2.md#i33-supply-chain-s)). Renovate opens grouped
+  update pull requests once the app is installed (MA7).
+- Release: each firmware image gets `firmware-<env>-<version>.spdx.json`, an SPDX SBOM of the
+  PlatformIO platform and the resolved libraries.
+
 ## [0.5.0] - 2026-11-01
 
 Command results and desired state ([I19](https://github.com/Revolutionized-IoT2/.github/blob/main/docs/increments/phase-2.md#i19-firmware-results-and-desired-state-m)), from RIoT2.Ard.Shared's `NodeRuntime`.
