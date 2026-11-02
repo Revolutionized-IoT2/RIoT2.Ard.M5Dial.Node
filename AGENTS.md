@@ -59,7 +59,7 @@ Device commands, only when an M5Dial is connected and flashing/monitoring was re
 | `src/main.cpp` | Board setup, `NodeRuntimeHooks` and the main loop (carousel, diagnostics, status screen) |
 | `include/DialInput.h`, `src/DialInput.cpp` | Hardware encoder detents, button tap/hold gestures (diagnostics, factory reset), touch |
 | `include/DisplayPower.h`, `include/DiagnosticsScreen.h`, `include/RfidReader.h`, `include/StatusScreen.h` (and `src/`) | Dim/sleep, the diagnostics screen with hold-to-power-off, the built-in RFID reader, status text |
-| `include/BoardPeripherals.h`, `src/BoardPeripherals.cpp` | Grove pin map and GPIO peripheral registration |
+| `include/BoardPeripherals.h`, `src/BoardPeripherals.cpp` | Grove pin map and peripheral registration (GPIO, Wiegand) |
 | `include/RFIDView.h`, `src/RFIDView.cpp` | Built-in RFID view |
 | `src/Icons.cpp`, `include/Icons.h` | Embedded icon assets |
 | `.github/copilot-instructions.md` | Pointer to this file only |
@@ -122,4 +122,4 @@ Device commands, only when an M5Dial is connected and flashing/monitoring was re
 - Plan [M5](https://github.com/Revolutionized-IoT2/.github/blob/main/docs/plans/m05-firmware-node-runtime.md):
   shared firmware view logic and node runtime.
 - [Feature ideas](https://github.com/Revolutionized-IoT2/.github/blob/main/docs/features.md#firmware):
-  Wiegand peripheral integration and OTA channel improvements.
+  OTA channel improvements (the Wiegand peripheral is done, I42).

@@ -4,6 +4,15 @@ All notable documentation changes to `RIoT2.Ard.M5Dial.Node`.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-02
+
+Wiegand card readers ([I42](https://github.com/Revolutionized-IoT2/.github/blob/main/docs/increments/phase-3-4.md#i42-wiegand-peripheral-s)). Flash over OTA as before; nothing changes until a configuration adds
+the new peripheral.
+
+- Added: the *Wiegand Reader* peripheral (`RIoT2.Ard.M5Dial.Node.WiegandI2CPeripheral`, shared
+  `WiegandI2CPeripheral`): a RIoT2.Ard.WiegandI2C module on Grove PORT.A, every card code as a text
+  report; parameters `address` (`0x26`), `irq` (`B1`/`B2`, optional) and `format` (`hex`,
+  `decimal`, `facility`).
 - Build: `renovate.json` extends the shared Renovate preset ([I33](https://github.com/Revolutionized-IoT2/.github/blob/main/docs/increments/phase-2.md#i33-supply-chain-s)). Renovate opens grouped
   update pull requests once the app is installed (MA7).
 - Release: each firmware image gets `firmware-<env>-<version>.spdx.json`, an SPDX SBOM of the

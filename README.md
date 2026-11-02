@@ -83,6 +83,11 @@ To factory-reset provisioning, hold the physical dial button for about five seco
   view; repeated reads of the same UID are suppressed for three seconds.
 - BLE scanning starts only when a BLE-consuming view exists, then remains active.
 - Grove pins are A1/GPIO13, A2/GPIO15, B1/GPIO2 and B2/GPIO1.
+- A [WiegandI2C](https://github.com/Revolutionized-IoT2/RIoT2.Ard.WiegandI2C) card reader module
+  plugs into PORT.A (A1/GPIO13 and A2/GPIO15 are SDA and SCL): add the *Wiegand Reader* peripheral
+  (`RIoT2.Ard.M5Dial.Node.WiegandI2CPeripheral`, 0.6.0) and every card read is a text report.
+  Wire the module's IRQ to B1 or B2 and set `irq` to read it only when a code waits. PORT.A then
+  can't also have GPIO slots A1/A2.
 
 ## OTA
 
